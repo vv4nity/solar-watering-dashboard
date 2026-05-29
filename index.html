@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Solar-Powered Automated Watering System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* surfaces */
+    --bg: #eaf1e8;
+    --card-grad: linear-gradient(155deg, rgba(255,255,255,.86), rgba(255,255,255,.66));
+    --card-soft: rgba(255,255,255,.55);
+
+    /* ink */
+    --ink: #122016;
+    --ink-2: #34463a;
+    --muted: #5b6d5f;
+
+    /* brand + semantic */
+    --green: #2fa257;
+    --green-dark: #167a38;
+    --green-soft: rgba(47,162,87,.12);
+    --amber: #f0a31e;
+    --amber-dark: #b9760a;
+    --amber-soft: rgba(240,163,30,.14);
+    --blue: #2f8fd6;
+    --blue-soft: rgba(47,143,214,.13);
+    --red: #e2554f;
+    --red-soft: rgba(226,85,79,.12);
+
+    /* lines + elevation */
+    --hairline: rgba(255,255,255,.7);
+    --line: rgba(20,42,24,.08);
+    --line-strong: rgba(20,42,24,.14);
+    --shadow:
+      0 1px 1px rgba(16,32,20,.04),
+      0 4px 10px rgba(16,32,20,.05),
+      0 16px 34px rgba(16,32,20,.07);
+    --shadow-lg:
+      0 2px 4px rgba(16,32,20,.05),
+      0 12px 28px rgba(16,32,20,.10),
+      0 30px 60px rgba(16,32,20,.12);
+    --shadow-sm: 0 1px 2px rgba(16,32,20,.06), 0 2px 6px rgba(16,32,20,.05);
+
+    /* radii */
+    --r-xl: 24px;
+    --r-lg: 20px;
+    --r-md: 14px;
+    --r-sm: 11px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 16px 20px;
+    line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "cv02","cv03","cv04","ss01";
+    position: relative;
+    background:
+      radial-gradient(1000px 680px at 6% -10%, rgba(47,162,87,.16), transparent 55%),
+      radial-gradient(900px 640px at 102% -4%, rgba(240,163,30,.15), transparent 52%),
+      radial-gradient(820px 760px at 50% 118%, rgba(47,143,214,.12), transparent 56%),
+      linear-gradient(168deg, #eef4ec 0%, #e4ede2 58%, #e9efe9 100%);
+    background-attachment: fixed;
+  }
+  /* fine grain texture for depth */
+  body::after {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    opacity: .04; mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .wrap {
+    max-width: 1280px; width: 100%; margin: 0 auto; position: relative; z-index: 1;
+    flex: 1; display: flex; flex-direction: column; min-height: 0;
+  }
+
+  /* ---------- Header ---------- */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 18px;
+    background: linear-gradient(160deg, rgba(255,255,255,.82), rgba(255,255,255,.58));
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border-radius: var(--r-xl);
+    padding: 13px 24px;
+    box-shadow: var(--shadow);
+    margin-bottom: 14px;
+    border: 1px solid var(--hairline);
+    position: relative;
+    flex: none;
+  }
+  header::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px;
+    background: linear-gradient(150deg, rgba(255,255,255,.95), rgba(255,255,255,0) 45%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+  }
+  .brand { display: flex; align-items: center; gap: 16px; min-width: 0; }
+  .logo {
+    width: 48px; height: 48px; border-radius: 15px; flex: none;
+    background: linear-gradient(135deg, #34b061, #f0a31e);
+    display: grid; place-items: center; font-size: 24px;
+    box-shadow: 0 8px 22px rgba(47,162,87,.42), inset 0 1px 0 rgba(255,255,255,.5);
+  }
+  .brand h1 { font-size: 19px; line-height: 1.22; letter-spacing: -.3px; font-weight: 800; }
+  .brand p {
+    color: var(--muted); font-size: 12.5px; margin-top: 5px; font-weight: 500;
+    display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+  }
+  .status-pill { display: flex; align-items: center; gap: 20px; }
+  .clock { text-align: right; }
+  .clock span { font-size: 12px; color: var(--muted); font-weight: 500; }
+  .clock strong {
+    display: block; font-size: 19px; color: var(--ink); font-weight: 800;
+    font-variant-numeric: tabular-nums; letter-spacing: .5px;
+  }
+  .online {
+    display: inline-flex; align-items: center; gap: 9px;
+    background: linear-gradient(180deg, rgba(47,162,87,.16), rgba(47,162,87,.10));
+    color: var(--green-dark); padding: 9px 15px; border-radius: 999px;
+    font-size: 12.5px; font-weight: 700;
+    border: 1px solid rgba(47,162,87,.22);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.5);
+  }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--green);
+    box-shadow: 0 0 8px rgba(47,162,87,.8);
+    animation: ping 1.9s cubic-bezier(.4,0,.2,1) infinite;
+  }
+  @keyframes ping {
+    0% { box-shadow: 0 0 0 0 rgba(47,162,87,.5), 0 0 8px rgba(47,162,87,.8); }
+    70%,100% { box-shadow: 0 0 0 8px rgba(47,162,87,0), 0 0 8px rgba(47,162,87,.4); }
+  }
+  .demo-tag {
+    background: linear-gradient(180deg, rgba(240,163,30,.2), rgba(240,163,30,.12));
+    color: var(--amber-dark); font-size: 10px; font-weight: 800;
+    padding: 3px 9px; border-radius: 7px; letter-spacing: .7px;
+    border: 1px solid rgba(185,118,10,.22);
+  }
+
+  /* ---------- Grid ---------- */
+  .grid {
+    display: grid; grid-template-columns: repeat(12, 1fr);
+    grid-template-rows: minmax(0,1fr) minmax(0,1fr) minmax(0,1.25fr);
+    gap: 14px; flex: 1; min-height: 0;
+  }
+
+  .card {
+    position: relative;
+    background: var(--card-grad);
+    backdrop-filter: blur(20px) saturate(135%);
+    -webkit-backdrop-filter: blur(20px) saturate(135%);
+    border-radius: var(--r-lg);
+    padding: 15px 18px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--hairline);
+    display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+    transition: box-shadow .35s cubic-bezier(.16,1,.3,1), transform .35s cubic-bezier(.16,1,.3,1);
+    animation: rise .7s cubic-bezier(.16,1,.3,1) backwards;
+  }
+  /* glossy top-edge highlight */
+  .card::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px;
+    background: linear-gradient(155deg, rgba(255,255,255,.95), rgba(255,255,255,0) 42%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+  }
+  .card:hover { box-shadow: var(--shadow-lg); transform: translateY(-4px); }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  .card:nth-child(1){ animation-delay:.02s } .card:nth-child(2){ animation-delay:.07s }
+  .card:nth-child(3){ animation-delay:.12s } .card:nth-child(4){ animation-delay:.17s }
+  .card:nth-child(5){ animation-delay:.22s } .card:nth-child(6){ animation-delay:.27s }
+  .card:nth-child(7){ animation-delay:.32s } .card:nth-child(8){ animation-delay:.37s }
+
+  .card h2 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .8px;
+    color: var(--muted); font-weight: 800; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 10px; flex: none;
+  }
+  .hicon {
+    width: 28px; height: 28px; border-radius: 9px; flex: none;
+    display: grid; place-items: center; font-size: 14px;
+    background: var(--card-soft); border: 1px solid var(--hairline);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 2px 6px rgba(16,32,20,.06);
+  }
+  .hicon.t-green { background: linear-gradient(180deg, rgba(47,162,87,.18), rgba(47,162,87,.08)); }
+  .hicon.t-amber { background: linear-gradient(180deg, rgba(240,163,30,.2), rgba(240,163,30,.08)); }
+  .hicon.t-blue  { background: linear-gradient(180deg, rgba(47,143,214,.18), rgba(47,143,214,.08)); }
+
+  .span3 { grid-column: span 3; } .span4 { grid-column: span 4; }
+  .span6 { grid-column: span 6; } .span8 { grid-column: span 8; }
+  @media (max-width: 980px) {
+    /* below 3-column, let the page scroll normally */
+    body { height: auto; overflow: auto; display: block; padding: 18px 16px 28px; }
+    .wrap { display: block; flex: none; min-height: 0; }
+    .grid { display: grid; grid-template-rows: none; flex: none; gap: 16px; }
+    .card { overflow: visible; }
+    .span3, .span4 { grid-column: span 6; }
+    .span6, .span8 { grid-column: span 12; }
+    #chart { height: 230px; }
+  }
+  @media (max-width: 600px) {
+    .span3, .span4, .span6, .span8 { grid-column: span 12; }
+    header { padding: 14px 18px; }
+    .brand { gap: 12px; }
+    .brand h1 { font-size: 15.5px; }
+    .logo { width: 42px; height: 42px; font-size: 21px; }
+    .status-pill { width: 100%; justify-content: space-between; }
+    .metric b { font-size: 27px; }
+    #chart { height: 200px; }
+  }
+  /* very narrow phones: stack the paired metrics */
+  @media (max-width: 380px) {
+    .twin { grid-template-columns: 1fr; gap: 12px; }
+  }
+
+  /* ---------- Soil moisture ring ---------- */
+  .ring-wrap { display: flex; align-items: center; gap: 20px; flex: 1; }
+  .ring { position: relative; width: 116px; height: 116px; flex: none; }
+  .ring svg { transform: rotate(-90deg); display: block; overflow: visible; }
+  .ring #soilArc { transition: stroke-dashoffset .8s cubic-bezier(.16,1,.3,1), stroke .5s, filter .5s; }
+  .ring .val {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; gap: 3px; line-height: 1;
+  }
+  .ring .val b { font-size: 27px; font-weight: 800; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+  .ring .val span { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+  .soil-info p { font-size: 12.5px; color: var(--muted); margin-bottom: 11px; font-weight: 500; }
+  .soil-info p b { color: var(--ink-2); font-weight: 700; }
+  .soil-info .state {
+    font-size: 15px; font-weight: 700;
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 7px 14px; border-radius: 999px;
+    background: var(--card-soft); border: 1px solid var(--hairline);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 2px 8px rgba(16,32,20,.05);
+  }
+  .soil-info .state::before {
+    content: ""; width: 8px; height: 8px; border-radius: 50%;
+    background: currentColor; box-shadow: 0 0 8px currentColor;
+  }
+
+  /* ---------- Big metric ---------- */
+  .metric { display: flex; align-items: baseline; gap: 5px; }
+  .metric b { font-size: 30px; line-height: 1; font-weight: 800; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+  .metric span { font-size: 14px; color: var(--muted); font-weight: 600; }
+  .sub { color: var(--muted); font-size: 12px; margin-top: 7px; font-weight: 500; }
+  .sub b { color: var(--ink-2); font-weight: 700; }
+
+  /* ---------- Progress bar ---------- */
+  .bar {
+    height: 9px; background: rgba(20,42,24,.07); border-radius: 999px;
+    overflow: hidden; margin-top: 11px; position: relative;
+    box-shadow: inset 0 1px 2px rgba(16,32,20,.1);
+  }
+  .bar > div {
+    height: 100%; border-radius: 999px; width: 0; position: relative;
+    transition: width .8s cubic-bezier(.16,1,.3,1), background .5s;
+    box-shadow: 0 0 12px rgba(47,143,214,.4);
+  }
+  .bar > div::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit;
+    background: linear-gradient(180deg, rgba(255,255,255,.45), rgba(255,255,255,0) 60%);
+  }
+
+  /* ---------- Pump ---------- */
+  .pump-state { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+  .pump-icon {
+    width: 48px; height: 48px; flex: none;
+    display: grid; place-items: center; font-size: 30px;
+    background: none; border: none; box-shadow: none;
+  }
+  .pump-badge {
+    font-size: 17px; font-weight: 800; padding: 9px 20px; border-radius: 11px;
+    letter-spacing: .6px;
+  }
+  .pump-on  {
+    background: linear-gradient(180deg, rgba(47,162,87,.2), rgba(47,162,87,.1));
+    color: var(--green-dark); border: 1px solid rgba(47,162,87,.25);
+    box-shadow: 0 0 16px rgba(47,162,87,.25), inset 0 1px 0 rgba(255,255,255,.5);
+  }
+  .pump-off { background: rgba(20,42,24,.06); color: #889387; border: 1px solid var(--line); }
+  .pump-icon .gear { display: inline-block; line-height: 1; }
+  /* no tile — just a soft glow on the gear itself while running */
+  .spin .gear { animation: spin 1.1s linear infinite; filter: drop-shadow(0 0 6px rgba(47,162,87,.55)); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .mode-row {
+    display: flex; gap: 4px; margin-top: auto;
+    background: rgba(20,42,24,.05); border: 1px solid var(--line);
+    border-radius: 13px; padding: 4px;
+    box-shadow: inset 0 1px 3px rgba(16,32,20,.06);
+  }
+  .mode-btn {
+    flex: 1; border: none; background: transparent; color: var(--muted);
+    padding: 10px; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer;
+    letter-spacing: .4px; transition: all .25s cubic-bezier(.16,1,.3,1); font-family: inherit;
+  }
+  .mode-btn:hover { color: var(--ink); }
+  .mode-btn.active {
+    background: linear-gradient(180deg, #ffffff, #f6faf5); color: var(--ink);
+    box-shadow: 0 2px 8px rgba(16,32,20,.12), inset 0 1px 0 rgba(255,255,255,.8);
+  }
+
+  .btn {
+    border: none; cursor: pointer; font-weight: 700; font-size: 14px;
+    padding: 13px 16px; border-radius: 13px; width: 100%; color: #fff;
+    font-family: inherit; letter-spacing: .2px;
+    transition: transform .12s, filter .2s, box-shadow .25s;
+    box-shadow: 0 6px 18px rgba(47,162,87,.32), inset 0 1px 0 rgba(255,255,255,.3);
+  }
+  .btn:active { transform: scale(.985) translateY(1px); }
+  .btn-primary { background: linear-gradient(180deg, #38b063, #2fa257); }
+  .btn-primary:hover { filter: brightness(1.06); box-shadow: 0 8px 24px rgba(47,162,87,.42), inset 0 1px 0 rgba(255,255,255,.35); }
+
+  /* ---------- Stat rows ---------- */
+  .stat-row { display: flex; align-items: center; gap: 13px; }
+  .stat-icon {
+    width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center;
+    font-size: 22px; flex: none; border: 1px solid var(--hairline);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 3px 10px rgba(16,32,20,.06);
+  }
+  .ic-temp, .ic-batt, .ic-solar { background: linear-gradient(180deg, rgba(240,163,30,.2), rgba(240,163,30,.08)); }
+  .ic-hum, .ic-rain, .ic-tank { background: linear-gradient(180deg, rgba(47,143,214,.18), rgba(47,143,214,.08)); }
+  .twin { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; flex: 1; align-content: center; }
+
+  /* ---------- Chart ---------- */
+  #chart { width: 100%; flex: 1; min-height: 0; display: block; }
+  .legend { display: flex; gap: 16px; font-size: 11.5px; color: var(--muted); margin-top: 10px; flex-wrap: wrap; font-weight: 500; flex: none; }
+  .legend span { display: inline-flex; align-items: center; }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 6px; box-shadow: 0 0 6px currentColor; }
+
+  /* ---------- Log ---------- */
+  .log { min-height: 0; overflow-y: auto; font-size: 13px; flex: 1; padding-right: 6px; }
+  .log::-webkit-scrollbar { width: 6px; }
+  .log::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 999px; }
+  .log div {
+    padding: 8px 0; border-bottom: 1px solid var(--line); display: flex; gap: 12px; align-items: baseline;
+    animation: fadeIn .4s ease;
+  }
+  .log div:last-child { border-bottom: none; }
+  .log time { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; font-size: 12px; font-weight: 600; }
+  .log span { color: var(--ink-2); font-weight: 500; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+  footer { text-align: center; color: var(--muted); font-size: 11px; margin-top: 10px; line-height: 1.5; font-weight: 500; flex: none; }
+
+  /* ---------- A11y ---------- */
+  :focus-visible { outline: 2px solid var(--green); outline-offset: 3px; border-radius: 10px; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo">🌱</div>
+      <div>
+        <h1>Solar-Powered Automated Watering System</h1>
+        <p>Small-Scale Farming Monitoring Dashboard <span class="demo-tag">DEMO DATA</span></p>
+      </div>
+    </div>
+    <div class="status-pill">
+      <div class="clock">
+        <span id="date">—</span>
+        <strong id="time">--:--:--</strong>
+      </div>
+      <span class="online"><span class="dot"></span> ESP32 Online</span>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- Soil moisture -->
+    <div class="card span4">
+      <h2><span class="hicon t-blue">💧</span> Soil Moisture</h2>
+      <div class="ring-wrap">
+        <div class="ring">
+          <svg width="116" height="116" aria-hidden="true">
+            <circle cx="58" cy="58" r="48" fill="none" stroke="rgba(20,42,24,.08)" stroke-width="11"/>
+            <circle id="soilArc" cx="58" cy="58" r="48" fill="none" stroke="#2fa257" stroke-width="11"
+              stroke-linecap="round" stroke-dasharray="301.6" stroke-dashoffset="301.6"/>
+          </svg>
+          <div class="val"><b id="soilVal">0%</b><span>moisture</span></div>
+        </div>
+        <div class="soil-info">
+          <p>Threshold to water: <b id="thresh">35%</b></p>
+          <div class="state" id="soilState">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pump -->
+    <div class="card span4">
+      <h2><span class="hicon">⚙️</span> Water Pump</h2>
+      <div class="pump-state">
+        <span class="pump-icon" id="pumpIcon"><span class="gear">⚙️</span></span>
+        <span class="pump-badge pump-off" id="pumpBadge">OFF</span>
+      </div>
+      <div class="sub" id="pumpSub" style="margin-bottom:16px;">Idle — soil moisture sufficient</div>
+      <div class="mode-row" role="group" aria-label="Pump mode">
+        <button class="mode-btn active" id="autoBtn" aria-pressed="true">AUTO</button>
+        <button class="mode-btn" id="manualBtn" aria-pressed="false">MANUAL</button>
+      </div>
+      <button class="btn btn-primary" id="pumpToggle" style="margin-top:10px; display:none;">Turn Pump ON</button>
+    </div>
+
+    <!-- Rain -->
+    <div class="card span4">
+      <h2><span class="hicon t-blue">🌧️</span> Rain Sensor</h2>
+      <div class="stat-row">
+        <div class="stat-icon ic-rain" id="rainIcon">☀️</div>
+        <div>
+          <div class="metric"><b id="rainState" style="font-size:25px;">Dry</b></div>
+          <div class="sub" id="rainSub">No rain detected — watering enabled</div>
+        </div>
+      </div>
+      <div class="bar"><div id="rainBar" style="width:5%; background:var(--blue);"></div></div>
+      <div class="sub">Sensor wetness: <b id="rainPct">5%</b></div>
+    </div>
+
+    <!-- Temp + Humidity -->
+    <div class="card span4">
+      <h2><span class="hicon t-amber">🌡️</span> Air Temperature &amp; Humidity</h2>
+      <div class="twin">
+        <div class="stat-row">
+          <div class="stat-icon ic-temp">🌡️</div>
+          <div><div class="metric"><b id="tempVal">0</b><span>°C</span></div><div class="sub">Temperature</div></div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-icon ic-hum">💨</div>
+          <div><div class="metric"><b id="humVal">0</b><span>%</span></div><div class="sub">Humidity</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Water tank -->
+    <div class="card span4">
+      <h2><span class="hicon t-blue">🪣</span> Water Tank Level</h2>
+      <div class="metric"><b id="tankVal">0</b><span>%</span></div>
+      <div class="bar"><div id="tankBar" style="width:0%; background:var(--blue);"></div></div>
+      <div class="sub" id="tankSub">Tank capacity remaining</div>
+    </div>
+
+    <!-- Battery + Solar -->
+    <div class="card span4">
+      <h2><span class="hicon t-amber">🔋</span> Battery &amp; Solar</h2>
+      <div class="twin">
+        <div class="stat-row">
+          <div class="stat-icon ic-batt">🔋</div>
+          <div><div class="metric"><b id="battVal">0.0</b><span>V</span></div><div class="sub" id="battPct">Battery —</div></div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-icon ic-solar">☀️</div>
+          <div><div class="metric"><b id="solarVal">0.0</b><span>W</span></div><div class="sub" id="solarSub">Solar output</div></div>
+        </div>
+      </div>
+      <div class="bar"><div id="battBar" style="width:0%; background:var(--amber);"></div></div>
+    </div>
+
+    <!-- Chart -->
+    <div class="card span8">
+      <h2><span class="hicon t-green">📈</span> Soil Moisture &amp; Temperature (last 60s)</h2>
+      <canvas id="chart"></canvas>
+      <div class="legend">
+        <span><i style="background:var(--green); color:var(--green)"></i>Soil moisture (%)</span>
+        <span><i style="background:var(--amber); color:var(--amber)"></i>Temperature (°C)</span>
+        <span><i style="background:var(--blue); color:var(--blue)"></i>Pump ON periods</span>
+        <span><i style="background:var(--red); color:var(--red)"></i>Water threshold</span>
+      </div>
+    </div>
+
+    <!-- Activity log -->
+    <div class="card span4">
+      <h2><span class="hicon">📋</span> Activity Log</h2>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+
+  <footer>
+    Solar-Powered Automated Watering System for Small-Scale Farming · ESP32 IoT Dashboard<br>
+    Running on simulated sensor data for demonstration.
+  </footer>
+</div>
+
+<script>
+/* ============================================================
+   SIMULATED SENSOR MODEL
+   Replace readSensors() with real ESP32 data (fetch JSON) later.
+   ============================================================ */
+const THRESHOLD = 35;        // % soil moisture to trigger watering
+const THRESHOLD_HIGH = 65;   // % to stop watering
+
+let state = {
+  soil: 52,        // %
+  temp: 28,        // °C
+  hum: 65,         // %
+  tank: 88,        // %
+  rain: 5,         // sensor wetness %
+  batt: 12.6,      // V
+  solar: 14.0,     // W
+  pumpOn: false,
+  mode: 'auto',    // 'auto' | 'manual'
+  manualOn: false,
+};
+
+const MAX_POINTS = 60;
+let history = []; // {soil, temp, pump}
+
+function rnd(min, max){ return Math.random()*(max-min)+min; }
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+
+// Daylight factor 0..1 based on real clock hour (drives solar)
+function daylight(){
+  const h = new Date().getHours() + new Date().getMinutes()/60;
+  if (h < 6 || h > 18) return 0;
+  return Math.sin((h-6)/12 * Math.PI); // peaks at noon
+}
+
+function step(){
+  const day = daylight();
+
+  // Rain: occasional random rain events
+  if (state.rain < 15 && Math.random() < 0.01) state.rain = rnd(60, 95); // start raining
+  if (state.rain > 15) state.rain += rnd(-8, 4);                          // rain fades
+  state.rain = clamp(state.rain + rnd(-1.5, 1.5), 2, 100);
+  const raining = state.rain > 45;
+
+  // Pump logic
+  if (state.mode === 'auto'){
+    if (!state.pumpOn && state.soil < THRESHOLD && !raining && state.tank > 3) setPump(true, 'Soil below threshold');
+    else if (state.pumpOn && (state.soil >= THRESHOLD_HIGH || raining || state.tank <= 2)) {
+      setPump(false, raining ? 'Rain detected' : state.tank<=2 ? 'Tank empty' : 'Target moisture reached');
+    }
+  } else {
+    if (state.pumpOn !== state.manualOn) setPump(state.manualOn, 'Manual ' + (state.manualOn?'start':'stop'));
+  }
+
+  // Soil moisture dynamics
+  if (state.pumpOn) state.soil += rnd(1.2, 2.2);
+  else state.soil -= rnd(0.25, 0.7);            // evaporation/uptake
+  if (raining) state.soil += rnd(0.8, 1.6);     // rain wets soil
+  state.soil = clamp(state.soil, 0, 100);
+
+  // Tank drains while pumping
+  if (state.pumpOn) state.tank -= rnd(0.3, 0.6);
+  if (raining && state.tank < 100) state.tank += rnd(0.1, 0.4); // rain refills a bit
+  state.tank = clamp(state.tank, 0, 100);
+
+  // Temp/humidity wander; rain cools & humidifies
+  state.temp = clamp(state.temp + rnd(-0.3,0.3) + (day*0.05) - (raining?0.4:0), 18, 42);
+  state.hum  = clamp(state.hum + rnd(-1,1) + (raining?2:-0.3), 30, 98);
+
+  // Solar output follows daylight; battery charges from solar, discharges with pump
+  state.solar = clamp(day * 20 * rnd(0.85,1.0) - (raining?6:0), 0, 22);
+  let charge = state.solar*0.012 - (state.pumpOn?0.05:0) - 0.004;
+  state.batt = clamp(state.batt + charge, 11.4, 13.2);
+
+  history.push({ soil: state.soil, temp: state.temp, pump: state.pumpOn });
+  if (history.length > MAX_POINTS) history.shift();
+
+  render();
+}
+
+function setPump(on, reason){
+  if (state.pumpOn === on) return;
+  state.pumpOn = on;
+  addLog(`Pump ${on?'STARTED':'STOPPED'} — ${reason}`);
+}
+
+/* ---------- LOG ---------- */
+const logEl = document.getElementById('log');
+function pad(n){ return String(n).padStart(2,'0'); }
+function addLog(msg){
+  const d = new Date();
+  const row = document.createElement('div');
+  row.innerHTML = `<time>${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}</time><span>${msg}</span>`;
+  logEl.prepend(row);
+  while (logEl.children.length > 40) logEl.removeChild(logEl.lastChild);
+}
+
+/* ---------- RENDER ---------- */
+const C = 2 * Math.PI * 48; // ring circumference
+function render(){
+  // Soil ring
+  const s = Math.round(state.soil);
+  document.getElementById('soilVal').textContent = s + '%';
+  const arc = document.getElementById('soilArc');
+  arc.style.strokeDashoffset = C * (1 - s/100);
+  let col = s < THRESHOLD ? '#e2554f' : s < 55 ? '#f0a31e' : '#2fa257';
+  arc.style.stroke = col;
+  arc.style.filter = 'drop-shadow(0 0 6px ' + col + '66)';
+  const stEl = document.getElementById('soilState');
+  if (s < THRESHOLD){ stEl.textContent = 'Dry — needs water'; stEl.style.color = '#e2554f'; }
+  else if (s < 55){ stEl.textContent = 'Moderate'; stEl.style.color = '#b9760a'; }
+  else { stEl.textContent = 'Well watered'; stEl.style.color = '#167a38'; }
+
+  // Pump
+  const badge = document.getElementById('pumpBadge');
+  const icon = document.getElementById('pumpIcon');
+  if (state.pumpOn){
+    badge.textContent = 'ON'; badge.className = 'pump-badge pump-on';
+    icon.classList.add('spin');
+    document.getElementById('pumpSub').textContent = 'Pumping water to drip lines…';
+  } else {
+    badge.textContent = 'OFF'; badge.className = 'pump-badge pump-off';
+    icon.classList.remove('spin');
+    document.getElementById('pumpSub').textContent = 'Idle — soil moisture sufficient';
+  }
+
+  // Rain
+  const raining = state.rain > 45;
+  document.getElementById('rainIcon').textContent = raining ? '🌧️' : '☀️';
+  document.getElementById('rainState').textContent = raining ? 'Raining' : 'Dry';
+  document.getElementById('rainSub').textContent = raining ? 'Rain detected — watering paused' : 'No rain detected — watering enabled';
+  const rb = document.getElementById('rainBar');
+  rb.style.width = Math.round(state.rain) + '%';
+  rb.style.boxShadow = '0 0 12px rgba(47,143,214,.5)';
+  document.getElementById('rainPct').textContent = Math.round(state.rain) + '%';
+
+  // Temp / hum
+  document.getElementById('tempVal').textContent = state.temp.toFixed(1);
+  document.getElementById('humVal').textContent = Math.round(state.hum);
+
+  // Tank
+  const t = Math.round(state.tank);
+  document.getElementById('tankVal').textContent = t;
+  const tb = document.getElementById('tankBar');
+  tb.style.width = t + '%';
+  const tcol = t < 15 ? '#e2554f' : t < 35 ? '#f0a31e' : '#2f8fd6';
+  tb.style.background = tcol;
+  tb.style.boxShadow = '0 0 12px ' + tcol + '80';
+  document.getElementById('tankSub').textContent = t < 15 ? 'LOW — refill tank soon' : 'Tank capacity remaining';
+
+  // Battery / solar
+  document.getElementById('battVal').textContent = state.batt.toFixed(2);
+  const battPctNum = Math.round(clamp((state.batt - 11.6) / (12.8 - 11.6) * 100, 0, 100));
+  document.getElementById('battPct').textContent = 'Battery ' + battPctNum + '%';
+  const bb = document.getElementById('battBar');
+  bb.style.width = battPctNum + '%';
+  const bcol = battPctNum < 20 ? '#e2554f' : '#f0a31e';
+  bb.style.background = bcol;
+  bb.style.boxShadow = '0 0 12px ' + bcol + '80';
+  document.getElementById('solarVal').textContent = state.solar.toFixed(1);
+  document.getElementById('solarSub').textContent = state.solar > 1 ? 'Charging from sun' : 'No sunlight';
+
+  document.getElementById('thresh').textContent = THRESHOLD + '%';
+  drawChart();
+}
+
+/* ---------- CHART ---------- */
+const cv = document.getElementById('chart');
+const ctx = cv.getContext('2d');
+function drawChart(){
+  const dpr = window.devicePixelRatio || 1;
+  const w = cv.clientWidth, h = cv.clientHeight;
+  cv.width = w*dpr; cv.height = h*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
+  const pad = 30, gx0 = pad, gx1 = w-12, gy0 = 12, gy1 = h-26;
+
+  // grid + y labels
+  ctx.strokeStyle = 'rgba(20,42,24,.07)'; ctx.lineWidth = 1;
+  for (let i=0;i<=4;i++){ const y = gy0 + (gy1-gy0)*i/4; ctx.beginPath(); ctx.moveTo(gx0,y); ctx.lineTo(gx1,y); ctx.stroke(); }
+  ctx.fillStyle = 'rgba(91,109,95,.8)'; ctx.font = '600 10px Inter, system-ui'; ctx.textAlign = 'left';
+  ['100','75','50','25','0'].forEach((t,i)=>{ ctx.fillText(t, 6, gy0 + (gy1-gy0)*i/4 + 3); });
+
+  const xAt = i => gx0 + (gx1-gx0) * (i/(MAX_POINTS-1));
+  const yPct = v => gy1 - (gy1-gy0) * (v/100);
+  const yTemp = v => gy1 - (gy1-gy0) * (v/50); // temp scaled 0..50
+
+  // x-axis labels
+  ctx.fillStyle = 'rgba(91,109,95,.7)';
+  ctx.textAlign = 'left';  ctx.fillText('60s ago', gx0, h-8);
+  ctx.textAlign = 'right'; ctx.fillText('now', gx1, h-8);
+  ctx.textAlign = 'left';
+
+  const n = history.length; if (n < 2) return;
+
+  // pump ON shading
+  ctx.fillStyle = 'rgba(47,143,214,0.12)';
+  for (let i=0;i<n;i++){
+    if (history[i].pump){
+      const x = xAt(i), xn = xAt(Math.min(i+1,n-1));
+      ctx.fillRect(x, gy0, Math.max(xn-x,2), gy1-gy0);
+    }
+  }
+
+  // soil area fill (gradient under the line)
+  const soilPts = history.map((p,i)=>[xAt(i), yPct(p.soil)]);
+  const grad = ctx.createLinearGradient(0, gy0, 0, gy1);
+  grad.addColorStop(0, 'rgba(47,162,87,0.26)');
+  grad.addColorStop(1, 'rgba(47,162,87,0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(soilPts[0][0], gy1);
+  soilPts.forEach(([x,y])=> ctx.lineTo(x,y));
+  ctx.lineTo(soilPts[soilPts.length-1][0], gy1);
+  ctx.closePath();
+  ctx.fill();
+
+  // soil line (with soft glow)
+  ctx.save();
+  ctx.shadowColor = 'rgba(47,162,87,.45)'; ctx.shadowBlur = 8;
+  drawLine(soilPts, '#2fa257', 2.6);
+  ctx.restore();
+  // temp line
+  drawLine(history.map((p,i)=>[xAt(i), yTemp(p.temp)]), '#f0a31e', 2);
+  // threshold line
+  ctx.setLineDash([5,4]); ctx.strokeStyle = 'rgba(226,85,79,.75)';
+  ctx.beginPath(); ctx.moveTo(gx0, yPct(THRESHOLD)); ctx.lineTo(gx1, yPct(THRESHOLD)); ctx.stroke();
+  ctx.setLineDash([]);
+}
+function drawLine(pts, color, lw){
+  ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.beginPath(); pts.forEach(([x,y],i)=> i?ctx.lineTo(x,y):ctx.moveTo(x,y)); ctx.stroke();
+}
+
+/* ---------- CLOCK ---------- */
+function tickClock(){
+  const d = new Date();
+  document.getElementById('time').textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  document.getElementById('date').textContent = d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
+}
+
+/* ---------- CONTROLS ---------- */
+const autoBtn = document.getElementById('autoBtn');
+const manualBtn = document.getElementById('manualBtn');
+const pumpToggle = document.getElementById('pumpToggle');
+autoBtn.onclick = () => { state.mode='auto'; autoBtn.classList.add('active'); manualBtn.classList.remove('active'); autoBtn.setAttribute('aria-pressed','true'); manualBtn.setAttribute('aria-pressed','false'); pumpToggle.style.display='none'; addLog('Mode → AUTO'); };
+manualBtn.onclick = () => { state.mode='manual'; manualBtn.classList.add('active'); autoBtn.classList.remove('active'); manualBtn.setAttribute('aria-pressed','true'); autoBtn.setAttribute('aria-pressed','false'); pumpToggle.style.display='block'; state.manualOn=state.pumpOn; updateToggleLabel(); addLog('Mode → MANUAL'); };
+pumpToggle.onclick = () => { state.manualOn = !state.manualOn; updateToggleLabel(); };
+function updateToggleLabel(){
+  pumpToggle.textContent = state.manualOn ? 'Turn Pump OFF' : 'Turn Pump ON';
+  pumpToggle.style.background = state.manualOn ? 'linear-gradient(180deg,#ec6b66,#e2554f)' : 'linear-gradient(180deg,#38b063,#2fa257)';
+  pumpToggle.style.boxShadow = state.manualOn ? '0 6px 18px rgba(226,85,79,.34), inset 0 1px 0 rgba(255,255,255,.3)' : '0 6px 18px rgba(47,162,87,.32), inset 0 1px 0 rgba(255,255,255,.3)';
+}
+
+/* ---------- BOOT ---------- */
+addLog('System initialized — ESP32 connected');
+addLog('Sensors calibrated · AUTO mode active');
+tickClock();
+render();
+setInterval(tickClock, 1000);
+setInterval(step, 1000);
+window.addEventListener('resize', drawChart);
+</script>
+</body>
+</html>

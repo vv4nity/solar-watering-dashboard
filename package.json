@@ -1,0 +1,10 @@
+{
+  "name": "solar-watering-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Solar-Powered Automated Watering System — ESP32 IoT monitoring dashboard (static HTML).",
+  "scripts": {
+    "start": "npx --yes serve -l 8000 .",
+    "dev": "npx --yes serve -l 8000 ."
+  }
+}
