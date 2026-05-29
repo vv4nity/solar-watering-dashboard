@@ -154,7 +154,9 @@
   /* ---------- Grid ---------- */
   .grid {
     display: grid; grid-template-columns: repeat(12, 1fr);
-    grid-template-rows: minmax(0,1fr) minmax(0,1fr) minmax(0,1.25fr);
+    /* first two rows hug their content (so the pump button never clips);
+       the chart/log row absorbs the remaining height */
+    grid-template-rows: auto auto minmax(0,1fr);
     gap: 14px; flex: 1; min-height: 0;
   }
 
@@ -278,14 +280,14 @@
   }
 
   /* ---------- Pump ---------- */
-  .pump-state { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+  .pump-state { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
   .pump-icon {
-    width: 48px; height: 48px; flex: none;
-    display: grid; place-items: center; font-size: 30px;
+    width: 42px; height: 42px; flex: none;
+    display: grid; place-items: center; font-size: 26px;
     background: none; border: none; box-shadow: none;
   }
   .pump-badge {
-    font-size: 17px; font-weight: 800; padding: 9px 20px; border-radius: 11px;
+    font-size: 16px; font-weight: 800; padding: 7px 17px; border-radius: 10px;
     letter-spacing: .6px;
   }
   .pump-on  {
@@ -412,12 +414,12 @@
         <span class="pump-icon" id="pumpIcon"><span class="gear">⚙️</span></span>
         <span class="pump-badge pump-off" id="pumpBadge">OFF</span>
       </div>
-      <div class="sub" id="pumpSub" style="margin-bottom:16px;">Idle — soil moisture sufficient</div>
+      <div class="sub" id="pumpSub" style="margin-bottom:12px;">Idle — soil moisture sufficient</div>
       <div class="mode-row" role="group" aria-label="Pump mode">
         <button class="mode-btn active" id="autoBtn" aria-pressed="true">AUTO</button>
         <button class="mode-btn" id="manualBtn" aria-pressed="false">MANUAL</button>
       </div>
-      <button class="btn btn-primary" id="pumpToggle" style="margin-top:10px; display:none;">Turn Pump ON</button>
+      <button class="btn btn-primary" id="pumpToggle" style="margin-top:8px; display:none;">Turn Pump ON</button>
     </div>
 
     <!-- Rain -->
