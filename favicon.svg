@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#34b061"/>
+      <stop offset="1" stop-color="#f0a31e"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".28"/>
+      <stop offset=".5" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- rounded tile -->
+  <rect x="1" y="1" width="30" height="30" rx="8.5" fill="url(#bg)"/>
+  <rect x="1" y="1" width="30" height="30" rx="8.5" fill="url(#sheen)"/>
+
+  <!-- sprout -->
+  <g fill="none" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M16 26 C16 22 16 19 16 15"/>
+  </g>
+  <g fill="#ffffff">
+    <!-- left leaf -->
+    <path d="M16 19 C11.5 20 7.8 17 7.8 12.2 C13 12 16 14.2 16 19 Z"/>
+    <!-- right leaf -->
+    <path d="M16 16 C16 10.8 19 7.5 24.2 7.5 C24.2 12.6 21 16 16 16 Z"/>
+  </g>
+</svg>
