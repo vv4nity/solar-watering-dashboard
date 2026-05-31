@@ -116,9 +116,10 @@
   .brand { display: flex; align-items: center; gap: 16px; min-width: 0; }
   .logo {
     width: 48px; height: 48px; border-radius: 15px; flex: none;
-    background: linear-gradient(135deg, #34b061, #f0a31e);
+    background: linear-gradient(160deg, rgba(47,162,87,.18), rgba(240,163,30,.14));
+    border: 1px solid var(--hairline);
     display: grid; place-items: center; font-size: 24px;
-    box-shadow: 0 8px 22px rgba(47,162,87,.42), inset 0 1px 0 rgba(255,255,255,.5);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 4px 12px rgba(16,32,20,.07);
   }
   .brand h1 { font-size: 19px; line-height: 1.22; letter-spacing: -.3px; font-weight: 800; }
   .brand p {
@@ -236,8 +237,8 @@
   }
 
   /* ---------- Soil moisture ring ---------- */
-  .ring-wrap { display: flex; align-items: center; gap: 20px; flex: 1; }
-  .ring { position: relative; width: 116px; height: 116px; flex: none; }
+  .ring-wrap { display: flex; align-items: center; justify-content: center; gap: 28px; flex: 1; }
+  .ring { position: relative; width: 140px; height: 140px; flex: none; }
   .ring svg { transform: rotate(-90deg); display: block; overflow: visible; }
   .ring #soilArc { transition: stroke-dashoffset .8s cubic-bezier(.16,1,.3,1), stroke .5s, filter .5s; }
   .ring .val {
@@ -245,7 +246,7 @@
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     text-align: center; gap: 3px; line-height: 1;
   }
-  .ring .val b { font-size: 27px; font-weight: 800; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+  .ring .val b { font-size: 33px; font-weight: 800; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
   .ring .val span { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
   .soil-info p { font-size: 12.5px; color: var(--muted); margin-bottom: 11px; font-weight: 500; }
   .soil-info p b { color: var(--ink-2); font-weight: 700; }
@@ -259,6 +260,14 @@
   .soil-info .state::before {
     content: ""; width: 8px; height: 8px; border-radius: 50%;
     background: currentColor; box-shadow: 0 0 8px currentColor;
+  }
+  .soil-info .thresh-line { margin-top: 11px; margin-bottom: 0; }
+  /* threshold marker dot on the moisture ring */
+  .ring-thresh {
+    position: absolute; width: 10px; height: 10px; border-radius: 50%;
+    background: #fff; border: 2.5px solid var(--red);
+    transform: translate(-50%, -50%); z-index: 2;
+    box-shadow: 0 1px 4px rgba(16,32,20,.3);
   }
 
   /* ---------- Big metric ---------- */
@@ -284,12 +293,84 @@
     background: linear-gradient(180deg, rgba(255,255,255,.45), rgba(255,255,255,0) 60%);
   }
 
+  /* ---------- Battery widget ---------- */
+  .battery { display: flex; align-items: center; gap: 4px; margin-top: 13px; }
+  .batt-shell {
+    position: relative; flex: 1; height: 28px;
+    border: 2px solid var(--line-strong); border-radius: 8px;
+    background: rgba(20,42,24,.05);
+    box-shadow: inset 0 1px 3px rgba(16,32,20,.13);
+    overflow: hidden;
+  }
+  .batt-fill {
+    position: absolute; top: 0; left: 0; bottom: 0; width: 0;
+    border-radius: 5px 0 0 5px; background: var(--amber);
+    transition: width .8s cubic-bezier(.16,1,.3,1), background .5s;
+  }
+  .batt-fill::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,.5), rgba(255,255,255,0) 55%);
+  }
+  /* segment dividers */
+  .batt-shell::before {
+    content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+    background: repeating-linear-gradient(90deg,
+      transparent 0, transparent calc(20% - 1.5px),
+      rgba(20,42,24,.10) calc(20% - 1.5px), rgba(20,42,24,.10) 20%);
+  }
+  .batt-label {
+    position: absolute; inset: 0; z-index: 3; display: grid; place-items: center;
+    font-size: 13px; font-weight: 800; color: var(--ink);
+    font-variant-numeric: tabular-nums; letter-spacing: .02em;
+    text-shadow: 0 1px 2px rgba(255,255,255,.65);
+  }
+  .batt-cap {
+    flex: none; width: 5px; height: 13px; border-radius: 0 3px 3px 0;
+    background: var(--line-strong);
+  }
+
+  /* ---------- Water tank ---------- */
+  .tank-wrap { display: flex; align-items: center; justify-content: center; gap: 34px; flex: 1; }
+  .tank {
+    position: relative; width: 96px; height: 156px; flex: none;
+    border: 2.5px solid var(--line-strong); border-radius: 16px;
+    background: rgba(20,42,24,.04);
+    box-shadow: inset 0 2px 7px rgba(16,32,20,.13);
+    overflow: hidden;
+  }
+  /* level tick lines (every 25%) */
+  .tank::before {
+    content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none;
+    background: repeating-linear-gradient(0deg,
+      transparent 0, transparent calc(25% - 1px),
+      rgba(20,42,24,.08) calc(25% - 1px), rgba(20,42,24,.08) 25%);
+  }
+  .tank-water {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 0;
+    color: #2f8fd6; background: linear-gradient(180deg, #46a0e0, #2f8fd6);
+    box-shadow: 0 0 18px rgba(47,143,214,.4);
+    transition: height .9s cubic-bezier(.16,1,.3,1), background .5s, color .5s;
+  }
+  .tank-wave {
+    position: absolute; top: -12px; left: 0; width: 200%; height: 14px;
+    fill: currentColor; animation: wave 2.6s linear infinite;
+  }
+  @keyframes wave { to { transform: translateX(-50%); } }
+  .tank-info .metric b { font-size: 38px; }
+
   /* ---------- Pump ---------- */
   .pump-state { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
   .pump-icon {
-    width: 42px; height: 42px; flex: none;
-    display: grid; place-items: center; font-size: 26px;
-    background: none; border: none; box-shadow: none;
+    width: 52px; height: 52px; flex: none; border-radius: 15px;
+    display: grid; place-items: center; font-size: 27px;
+    background: rgba(20,42,24,.06); border: 1px solid var(--line);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 3px 10px rgba(16,32,20,.06);
+    transition: background .4s, box-shadow .4s, border-color .4s;
+  }
+  .pump-icon.on {
+    background: linear-gradient(180deg, rgba(47,162,87,.28), rgba(47,162,87,.12));
+    border-color: rgba(47,162,87,.3);
+    box-shadow: 0 0 18px rgba(47,162,87,.35), inset 0 1px 0 rgba(255,255,255,.5);
   }
   .pump-badge {
     font-size: 16px; font-weight: 800; padding: 7px 17px; border-radius: 10px;
@@ -344,6 +425,45 @@
   .ic-temp, .ic-batt, .ic-solar { background: linear-gradient(180deg, rgba(240,163,30,.2), rgba(240,163,30,.08)); }
   .ic-hum, .ic-rain, .ic-tank { background: linear-gradient(180deg, rgba(47,143,214,.18), rgba(47,143,214,.08)); }
   .twin { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; flex: 1; align-content: center; }
+
+  /* ---------- Mini stat tiles ---------- */
+  .mini-stat {
+    background: var(--card-soft); border: 1px solid var(--line);
+    border-radius: var(--r-md); padding: 13px 14px;
+    display: flex; flex-direction: column; gap: 9px;
+    transition: transform .16s ease, box-shadow .16s ease;
+  }
+  .mini-stat:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+  .mini-head { display: flex; align-items: center; gap: 9px; }
+  .mini-head .stat-icon { width: 34px; height: 34px; font-size: 17px; border-radius: 10px; }
+  .mini-label { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: .02em; }
+  .mini-stat .metric b { font-size: 26px; }
+  .mini-stat .bar, .mini-stat .gauge-track { margin-top: 0; }
+  .mini-state { margin-top: 0; font-weight: 700; color: var(--ink-2); }
+
+  /* gradient thermometer gauge with sliding marker */
+  .gauge-track {
+    position: relative; height: 8px; border-radius: 999px;
+    box-shadow: inset 0 1px 2px rgba(16,32,20,.13);
+  }
+  .temp-track { background: linear-gradient(90deg, #2f8fd6, #2fa257 42%, #f0a31e 74%, #e2554f); }
+  .gauge-marker {
+    position: absolute; top: 50%; left: 0; width: 14px; height: 14px;
+    border-radius: 50%; background: #fff; border: 2.5px solid var(--ink-2);
+    transform: translate(-50%, -50%);
+    box-shadow: 0 2px 6px rgba(16,32,20,.28);
+    transition: left .8s cubic-bezier(.16,1,.3,1);
+  }
+
+  /* ---------- Last watered footer ---------- */
+  .last-watered {
+    display: flex; align-items: center; gap: 10px; margin-top: 13px;
+    padding: 10px 13px; border-radius: var(--r-sm);
+    background: var(--blue-soft); border: 1px solid rgba(47,143,214,.18);
+  }
+  .lw-icon { font-size: 17px; flex: none; line-height: 1; }
+  .lw-text { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+  .lw-text b { font-weight: 800; color: var(--ink); }
 
   /* ---------- Chart ---------- */
   #chart { width: 100%; flex: 1; min-height: 0; display: block; }
@@ -419,16 +539,17 @@
       <h2><span class="hicon t-blue">💧</span> Soil Moisture</h2>
       <div class="ring-wrap">
         <div class="ring">
-          <svg width="116" height="116" aria-hidden="true">
-            <circle cx="58" cy="58" r="48" fill="none" stroke="rgba(20,42,24,.08)" stroke-width="11"/>
-            <circle id="soilArc" cx="58" cy="58" r="48" fill="none" stroke="#2fa257" stroke-width="11"
-              stroke-linecap="round" stroke-dasharray="301.6" stroke-dashoffset="301.6"/>
+          <svg width="140" height="140" aria-hidden="true">
+            <circle cx="70" cy="70" r="58" fill="none" stroke="rgba(20,42,24,.08)" stroke-width="12"/>
+            <circle id="soilArc" cx="70" cy="70" r="58" fill="none" stroke="#2fa257" stroke-width="12"
+              stroke-linecap="round" stroke-dasharray="364.42" stroke-dashoffset="364.42"/>
           </svg>
           <div class="val"><b id="soilVal">0%</b><span>moisture</span></div>
+          <span class="ring-thresh" id="ringThresh" title="Watering threshold"></span>
         </div>
         <div class="soil-info">
-          <p>Threshold to water: <b id="thresh">35%</b></p>
           <div class="state" id="soilState">—</div>
+          <p class="thresh-line">Waters below <b id="thresh">35%</b></p>
         </div>
       </div>
     </div>
@@ -452,29 +573,36 @@
     <div class="card span4">
       <h2><span class="hicon t-blue">💦</span> Watering Activity</h2>
       <div class="twin">
-        <div class="stat-row">
-          <div class="stat-icon ic-rain">⏱️</div>
-          <div><div class="metric"><b id="runtimeVal" style="font-size:24px;">0s</b></div><div class="sub">Runtime today</div></div>
+        <div class="mini-stat">
+          <div class="mini-head"><span class="stat-icon ic-rain">⏱️</span><span class="mini-label">Runtime today</span></div>
+          <div class="metric"><b id="runtimeVal">0s</b></div>
         </div>
-        <div class="stat-row">
-          <div class="stat-icon ic-rain">🔁</div>
-          <div><div class="metric"><b id="cyclesVal">0</b></div><div class="sub">Cycles today</div></div>
+        <div class="mini-stat">
+          <div class="mini-head"><span class="stat-icon ic-rain">🔁</span><span class="mini-label">Cycles today</span></div>
+          <div class="metric"><b id="cyclesVal">0</b></div>
         </div>
       </div>
-      <div class="sub" id="lastWateredSub" style="margin-top:10px;">Last watered: —</div>
+      <div class="last-watered">
+        <span class="lw-icon">🕒</span>
+        <span class="lw-text">Last watered <b id="lastWateredVal">—</b></span>
+      </div>
     </div>
 
     <!-- Temp + Humidity -->
     <div class="card span4">
       <h2><span class="hicon t-amber">🌡️</span> Air Temperature &amp; Humidity</h2>
       <div class="twin">
-        <div class="stat-row">
-          <div class="stat-icon ic-temp">🌡️</div>
-          <div><div class="metric"><b id="tempVal">0</b><span>°C</span></div><div class="sub">Temperature</div></div>
+        <div class="mini-stat">
+          <div class="mini-head"><span class="stat-icon ic-temp">🌡️</span><span class="mini-label">Temperature</span></div>
+          <div class="metric"><b id="tempVal">0</b><span>°C</span></div>
+          <div class="gauge-track temp-track"><span class="gauge-marker" id="tempMarker"></span></div>
+          <div class="sub mini-state" id="tempState">—</div>
         </div>
-        <div class="stat-row">
-          <div class="stat-icon ic-hum">💨</div>
-          <div><div class="metric"><b id="humVal">0</b><span>%</span></div><div class="sub">Humidity</div></div>
+        <div class="mini-stat">
+          <div class="mini-head"><span class="stat-icon ic-hum">💨</span><span class="mini-label">Humidity</span></div>
+          <div class="metric"><b id="humVal">0</b><span>%</span></div>
+          <div class="bar"><div id="humBar" style="width:0%; background:var(--blue);"></div></div>
+          <div class="sub mini-state" id="humState">—</div>
         </div>
       </div>
     </div>
@@ -482,9 +610,19 @@
     <!-- Water tank -->
     <div class="card span4">
       <h2><span class="hicon t-blue">🪣</span> Water Tank Level</h2>
-      <div class="metric"><b id="tankVal">0</b><span>%</span></div>
-      <div class="bar"><div id="tankBar" style="width:0%; background:var(--blue);"></div></div>
-      <div class="sub" id="tankSub">Tank capacity remaining</div>
+      <div class="tank-wrap">
+        <div class="tank">
+          <div class="tank-water" id="tankWater">
+            <svg class="tank-wave" viewBox="0 0 120 20" preserveAspectRatio="none" aria-hidden="true">
+              <path d="M0 10 q15 -8 30 0 t30 0 t30 0 t30 0 V20 H0 Z"/>
+            </svg>
+          </div>
+        </div>
+        <div class="tank-info">
+          <div class="metric"><b id="tankVal">0</b><span>%</span></div>
+          <div class="sub" id="tankSub">Tank capacity remaining</div>
+        </div>
+      </div>
     </div>
 
     <!-- Battery + Solar -->
@@ -500,7 +638,13 @@
           <div><div class="metric"><b id="solarVal">0.0</b><span>W</span></div><div class="sub" id="solarSub">Solar output</div></div>
         </div>
       </div>
-      <div class="bar"><div id="battBar" style="width:0%; background:var(--amber);"></div></div>
+      <div class="battery" title="Battery charge level">
+        <div class="batt-shell">
+          <div class="batt-fill" id="battBar"></div>
+          <span class="batt-label" id="battLabel">—</span>
+        </div>
+        <span class="batt-cap"></span>
+      </div>
     </div>
 
     <!-- Chart -->
@@ -636,7 +780,7 @@ function addLog(msg){
 }
 
 /* ---------- RENDER ---------- */
-const C = 2 * Math.PI * 48; // ring circumference
+const C = 2 * Math.PI * 58; // ring circumference
 function render(){
   // Soil ring
   const s = Math.round(state.soil);
@@ -656,11 +800,11 @@ function render(){
   const icon = document.getElementById('pumpIcon');
   if (state.pumpOn){
     badge.textContent = 'ON'; badge.className = 'pump-badge pump-on';
-    icon.classList.add('spin');
+    icon.classList.add('spin', 'on');
     document.getElementById('pumpSub').textContent = 'Pumping water to drip lines…';
   } else {
     badge.textContent = 'OFF'; badge.className = 'pump-badge pump-off';
-    icon.classList.remove('spin');
+    icon.classList.remove('spin', 'on');
     document.getElementById('pumpSub').textContent = 'Idle — soil moisture sufficient';
   }
 
@@ -668,32 +812,43 @@ function render(){
   document.getElementById('runtimeVal').textContent = fmtDuration(waterStats.runtimeSec);
   document.getElementById('cyclesVal').textContent = waterStats.cycles;
   const lw = waterStats.lastWatered;
-  document.getElementById('lastWateredSub').textContent =
-    'Last watered: ' + (lw ? `${pad(lw.getHours())}:${pad(lw.getMinutes())}` : '—');
+  document.getElementById('lastWateredVal').textContent =
+    lw ? `${pad(lw.getHours())}:${pad(lw.getMinutes())}` : '—';
 
   // Temp / hum
-  document.getElementById('tempVal').textContent = state.temp.toFixed(1);
-  document.getElementById('humVal').textContent = Math.round(state.hum);
+  const tC = state.temp;
+  document.getElementById('tempVal').textContent = tC.toFixed(1);
+  document.getElementById('tempMarker').style.left = clamp(tC / 50 * 100, 0, 100) + '%';
+  document.getElementById('tempState').textContent =
+    tC < 10 ? 'Cold' : tC < 20 ? 'Cool' : tC < 30 ? 'Comfortable' : tC < 38 ? 'Warm' : 'Hot';
+  const h = Math.round(state.hum);
+  document.getElementById('humVal').textContent = h;
+  document.getElementById('humBar').style.width = h + '%';
+  document.getElementById('humState').textContent =
+    h < 30 ? 'Dry air' : h < 70 ? 'Comfortable' : 'Humid';
 
   // Tank
   const t = Math.round(state.tank);
   document.getElementById('tankVal').textContent = t;
-  const tb = document.getElementById('tankBar');
-  tb.style.width = t + '%';
+  const water = document.getElementById('tankWater');
+  water.style.height = t + '%';
   const tcol = t < 15 ? '#e2554f' : t < 35 ? '#f0a31e' : '#2f8fd6';
-  tb.style.background = tcol;
-  tb.style.boxShadow = '0 0 12px ' + tcol + '80';
-  document.getElementById('tankSub').textContent = t < 15 ? 'LOW — refill tank soon' : 'Tank capacity remaining';
+  water.style.color = tcol;
+  water.style.background = `linear-gradient(180deg, ${tcol}, ${tcol}cc)`;
+  document.getElementById('tankSub').textContent =
+    t < 15 ? 'LOW — refill tank soon' : t < 35 ? 'Getting low' : 'Tank capacity remaining';
 
   // Battery / solar
   document.getElementById('battVal').textContent = state.batt.toFixed(2);
   const battPctNum = Math.round(clamp((state.batt - 3.0) / (4.2 - 3.0) * 100, 0, 100));
-  document.getElementById('battPct').textContent = 'Battery ' + battPctNum + '%';
+  const charging = state.solar > 1;
+  document.getElementById('battPct').textContent =
+    battPctNum < 20 ? 'Critical — recharge' : battPctNum < 50 ? 'Running low' : charging ? 'Charging' : 'Healthy';
   const bb = document.getElementById('battBar');
   bb.style.width = battPctNum + '%';
-  const bcol = battPctNum < 20 ? '#e2554f' : '#f0a31e';
+  const bcol = battPctNum < 20 ? '#e2554f' : battPctNum < 50 ? '#f0a31e' : '#2fa257';
   bb.style.background = bcol;
-  bb.style.boxShadow = '0 0 12px ' + bcol + '80';
+  document.getElementById('battLabel').textContent = battPctNum + '%' + (charging ? ' ⚡' : '');
   document.getElementById('solarVal').textContent = state.solar.toFixed(1);
   document.getElementById('solarSub').textContent = state.solar > 1 ? 'Charging from sun' : 'No sunlight';
 
@@ -801,6 +956,15 @@ function setOnline(ok){
 }
 
 /* ---------- BOOT ---------- */
+// Place the watering-threshold marker on the moisture ring (fixed position).
+(function placeThreshMarker(){
+  const ang = 2 * Math.PI * (THRESHOLD / 100);   // clockwise from top
+  const cx = 70, cy = 70, r = 58;                // ring SVG geometry (px)
+  const m = document.getElementById('ringThresh');
+  m.style.left = (cx + r * Math.sin(ang)) + 'px';
+  m.style.top  = (cy - r * Math.cos(ang)) + 'px';
+})();
+
 addLog('Dashboard started — connecting to Firebase…');
 tickClock();
 render();
