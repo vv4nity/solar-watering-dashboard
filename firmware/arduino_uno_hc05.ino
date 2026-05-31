@@ -81,8 +81,8 @@ void loop() {
     BT.print(wantPump ? 1 : 0);
     BT.print('\n');
 
-    // Mirror to USB serial so you can watch it without the phone.
-    Serial.print(F("Sent: "));
+    // Same clean CSV on USB serial, so pc_bridge.py works over a USB cable too
+    // (not just the HC-05 Bluetooth port). No prefix — keep it machine-readable.
     Serial.print(soilPercent);  Serial.print(',');
     Serial.print(temp, 1);      Serial.print(',');
     Serial.print(hum, 0);       Serial.print(',');
