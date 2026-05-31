@@ -697,6 +697,11 @@ const db  = getDatabase(app);
 const THRESHOLD = 35;        // % soil moisture to trigger watering (display only — the ESP32 owns the real logic)
 const THRESHOLD_HIGH = 65;   // % to stop watering
 
+// DEMO_MODE = true  -> show smooth, slowly-changing simulated data (no hardware needed).
+// DEMO_MODE = false -> read live data from Firebase as normal.
+const DEMO_MODE = true;
+const SIM_INTERVAL = 2500;   // ms between simulated updates (higher = calmer)
+
 let state = {
   soil: 52,        // %
   temp: 28,        // °C
@@ -957,15 +962,55 @@ function updateToggleLabel(){
   pumpToggle.style.boxShadow = state.manualOn ? '0 6px 18px rgba(226,85,79,.34), inset 0 1px 0 rgba(255,255,255,.3)' : '0 6px 18px rgba(47,162,87,.32), inset 0 1px 0 rgba(255,255,255,.3)';
 }
 
-// Push control changes to Firebase so the ESP32 can act on them.
-function writeMode(mode){ set(ref(db, 'wateringSystem/mode'), mode).catch(e => addLog('Write failed: ' + e.message)); }
-function writeManualPump(on){ set(ref(db, 'wateringSystem/manualPump'), on).catch(e => addLog('Write failed: ' + e.message)); }
+// Push control changes to Firebase so the ESP32 can act on them. (No-op in demo.)
+function writeMode(mode){ if (DEMO_MODE) return; set(ref(db, 'wateringSystem/mode'), mode).catch(e => addLog('Write failed: ' + e.message)); }
+function writeManualPump(on){ if (DEMO_MODE) return; set(ref(db, 'wateringSystem/manualPump'), on).catch(e => addLog('Write failed: ' + e.message)); }
+
+/* ---------- DEMO SIMULATION ---------- */
+function setPump(on){
+  if (on !== state.pumpOn){
+    addLog(`Pump ${on ? 'STARTED' : 'STOPPED'} — ${state.mode === 'auto' ? 'AUTO threshold' : 'MANUAL'}`);
+    if (on){ waterStats.cycles++; waterStats.lastWatered = new Date(); }
+  }
+  state.pumpOn = on;
+}
+
+// Gentle, slowly-drifting fake readings so the dashboard looks alive for demos
+// when no hardware is connected. Small deltas + a slow tick = calm motion.
+function simulateTick(){
+  // Soil dries slowly, and rises while the pump runs.
+  state.soil = clamp(state.soil + (state.pumpOn ? 2.2 : -0.7), 8, 100);
+
+  // Air temperature & humidity wander gently.
+  state.temp = clamp(state.temp + (Math.random() - 0.5) * 0.4, 21, 35);
+  state.hum  = clamp(state.hum  + (Math.random() - 0.5) * 1.0, 45, 88);
+
+  // Tank drains a little while pumping; "refills" once it gets low.
+  if (state.pumpOn) state.tank -= 0.4;
+  if (state.tank <= 18){ state.tank = 92; addLog('Tank refilled to 92%'); }
+
+  // Solar follows a slow sine "sun" curve; battery charges in sun, drains otherwise.
+  state.solar = clamp(11 + Math.sin(Date.now() / 90000) * 7 + (Math.random() - 0.5), 0, 20);
+  state.batt  = clamp(state.batt + (state.solar > 3 ? 0.012 : -0.01), 3.2, 4.2);
+
+  // Pump decision (mirrors the AUTO logic the firmware would run).
+  if (state.mode === 'auto'){
+    if (state.soil < THRESHOLD)           setPump(true);
+    else if (state.soil > THRESHOLD_HIGH) setPump(false);
+  } else {
+    setPump(state.manualOn);
+  }
+
+  lastUpdate = Date.now();
+  setOnline(true);
+  render();
+}
 
 /* ---------- CONNECTION STATUS ---------- */
 const onlinePill = document.getElementById('onlinePill');
 const onlineText = document.getElementById('onlineText');
 function setOnline(ok){
-  onlineText.textContent = ok ? 'ESP32 Online' : 'ESP32 Offline';
+  onlineText.textContent = DEMO_MODE ? 'Demo Mode' : (ok ? 'ESP32 Online' : 'ESP32 Offline');
   onlinePill.style.opacity = ok ? '1' : '.5';
 }
 
@@ -979,28 +1024,38 @@ function setOnline(ok){
   m.style.top  = (cy - r * Math.cos(ang)) + 'px';
 })();
 
-addLog('Dashboard started — connecting to Firebase…');
 tickClock();
 render();
 setInterval(tickClock, 1000);
 setInterval(pushHistory, 1000);
 window.addEventListener('resize', drawChart);
 
-// Keep client/server clocks aligned so lastSeen freshness is accurate.
-onValue(ref(db, '.info/serverTimeOffset'), (snap) => { serverOffset = snap.val() || 0; });
+if (DEMO_MODE){
+  const demoTag = document.querySelector('.demo-tag');
+  if (demoTag) demoTag.textContent = 'DEMO';
+  addLog('Dashboard started in DEMO mode — showing simulated data');
+  setOnline(true);
+  simulateTick();                       // seed the first values immediately
+  setInterval(simulateTick, SIM_INTERVAL);
+} else {
+  addLog('Dashboard started — connecting to Firebase…');
 
-// Subscribe to live sensor data from the ESP32
-onValue(ref(db, 'wateringSystem'), (snapshot) => {
-  applyData(snapshot.val());
-}, (err) => {
-  addLog('Firebase error: ' + err.message);
-  setOnline(false);
-});
+  // Keep client/server clocks aligned so lastSeen freshness is accurate.
+  onValue(ref(db, '.info/serverTimeOffset'), (snap) => { serverOffset = snap.val() || 0; });
 
-// Mark the system offline if no genuine ESP32 report arrives within the window
-setInterval(() => {
-  if (Date.now() - lastUpdate > ONLINE_TIMEOUT) setOnline(false);
-}, 5000);
+  // Subscribe to live sensor data from the ESP32
+  onValue(ref(db, 'wateringSystem'), (snapshot) => {
+    applyData(snapshot.val());
+  }, (err) => {
+    addLog('Firebase error: ' + err.message);
+    setOnline(false);
+  });
+
+  // Mark the system offline if no genuine ESP32 report arrives within the window
+  setInterval(() => {
+    if (Date.now() - lastUpdate > ONLINE_TIMEOUT) setOnline(false);
+  }, 5000);
+}
 </script>
 </body>
 </html>
