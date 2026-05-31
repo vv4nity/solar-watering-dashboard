@@ -380,7 +380,7 @@
       <div class="logo">🌱</div>
       <div>
         <h1>Solar-Powered Automated Watering System</h1>
-        <p>Small-Scale Farming Monitoring Dashboard <span class="demo-tag">DEMO DATA</span></p>
+        <p>Small-Scale Farming Monitoring Dashboard <span class="demo-tag">LIVE</span></p>
       </div>
     </div>
     <div class="status-pill">
@@ -388,7 +388,7 @@
         <span id="date">—</span>
         <strong id="time">--:--:--</strong>
       </div>
-      <span class="online"><span class="dot"></span> ESP32 Online</span>
+      <span class="online" id="onlinePill"><span class="dot"></span> <span id="onlineText">Connecting…</span></span>
     </div>
   </header>
 
@@ -427,18 +427,20 @@
       <button class="btn btn-primary" id="pumpToggle" style="margin-top:8px; display:none;">Turn Pump ON</button>
     </div>
 
-    <!-- Rain -->
+    <!-- Watering activity -->
     <div class="card span4">
-      <h2><span class="hicon t-blue">🌧️</span> Rain Sensor</h2>
-      <div class="stat-row">
-        <div class="stat-icon ic-rain" id="rainIcon">☀️</div>
-        <div>
-          <div class="metric"><b id="rainState" style="font-size:25px;">Dry</b></div>
-          <div class="sub" id="rainSub">No rain detected — watering enabled</div>
+      <h2><span class="hicon t-blue">💦</span> Watering Activity</h2>
+      <div class="twin">
+        <div class="stat-row">
+          <div class="stat-icon ic-rain">⏱️</div>
+          <div><div class="metric"><b id="runtimeVal" style="font-size:24px;">0s</b></div><div class="sub">Runtime today</div></div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-icon ic-rain">🔁</div>
+          <div><div class="metric"><b id="cyclesVal">0</b></div><div class="sub">Cycles today</div></div>
         </div>
       </div>
-      <div class="bar"><div id="rainBar" style="width:5%; background:var(--blue);"></div></div>
-      <div class="sub">Sensor wetness: <b id="rainPct">5%</b></div>
+      <div class="sub" id="lastWateredSub" style="margin-top:10px;">Last watered: —</div>
     </div>
 
     <!-- Temp + Humidity -->
@@ -505,12 +507,29 @@
   </footer>
 </div>
 
-<script>
+<script type="module">
 /* ============================================================
-   SIMULATED SENSOR MODEL
-   Replace readSensors() with real ESP32 data (fetch JSON) later.
+   LIVE DATA — Firebase Realtime Database
+   The ESP32 writes sensor readings to /wateringSystem; this
+   dashboard subscribes to that path and renders in real time.
    ============================================================ */
-const THRESHOLD = 35;        // % soil moisture to trigger watering
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAzUQjAuWQOQFl8kEUSY7dKXcLMPB1uQ5Y",
+  authDomain: "solar-automated-water-system.firebaseapp.com",
+  databaseURL: "https://solar-automated-water-system-default-rtdb.firebaseio.com",
+  projectId: "solar-automated-water-system",
+  storageBucket: "solar-automated-water-system.firebasestorage.app",
+  messagingSenderId: "141986979452",
+  appId: "1:141986979452:web:3128f21724b0ab7f1733f9"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getDatabase(app);
+
+const THRESHOLD = 35;        // % soil moisture to trigger watering (display only — the ESP32 owns the real logic)
 const THRESHOLD_HIGH = 65;   // % to stop watering
 
 let state = {
@@ -518,8 +537,7 @@ let state = {
   temp: 28,        // °C
   hum: 65,         // %
   tank: 88,        // %
-  rain: 5,         // sensor wetness %
-  batt: 12.6,      // V
+  batt: 3.9,       // V (single 18650 li-ion: ~3.0 empty, ~4.2 full)
   solar: 14.0,     // W
   pumpOn: false,
   mode: 'auto',    // 'auto' | 'manual'
@@ -529,65 +547,52 @@ let state = {
 const MAX_POINTS = 60;
 let history = []; // {soil, temp, pump}
 
-function rnd(min, max){ return Math.random()*(max-min)+min; }
-function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+// Watering stats, reset daily
+let waterStats = { runtimeSec: 0, cycles: 0, lastWatered: null, day: new Date().toDateString() };
 
-// Daylight factor 0..1 based on real clock hour (drives solar)
-function daylight(){
-  const h = new Date().getHours() + new Date().getMinutes()/60;
-  if (h < 6 || h > 18) return 0;
-  return Math.sin((h-6)/12 * Math.PI); // peaks at noon
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+function fmtDuration(sec){
+  sec = Math.round(sec);
+  const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+  if (h) return `${h}h ${m}m`;
+  if (m) return `${m}m ${s}s`;
+  return `${s}s`;
 }
 
-function step(){
-  const day = daylight();
+/* ---------- LIVE DATA ---------- */
+let lastUpdate = 0;
 
-  // Rain: occasional random rain events
-  if (state.rain < 15 && Math.random() < 0.01) state.rain = rnd(60, 95); // start raining
-  if (state.rain > 15) state.rain += rnd(-8, 4);                          // rain fades
-  state.rain = clamp(state.rain + rnd(-1.5, 1.5), 2, 100);
-  const raining = state.rain > 45;
-
-  // Pump logic
-  if (state.mode === 'auto'){
-    if (!state.pumpOn && state.soil < THRESHOLD && !raining && state.tank > 3) setPump(true, 'Soil below threshold');
-    else if (state.pumpOn && (state.soil >= THRESHOLD_HIGH || raining || state.tank <= 2)) {
-      setPump(false, raining ? 'Rain detected' : state.tank<=2 ? 'Tank empty' : 'Target moisture reached');
+// Map an incoming Firebase snapshot onto the dashboard state, then render.
+function applyData(data){
+  if (!data) return;
+  if (data.soil        != null) state.soil  = +data.soil;
+  if (data.temperature != null) state.temp  = +data.temperature;
+  if (data.humidity    != null) state.hum   = +data.humidity;
+  if (data.waterLevel  != null) state.tank  = +data.waterLevel;
+  if (data.battery     != null) state.batt  = +data.battery;
+  if (data.solar       != null) state.solar = +data.solar;
+  if (data.pump        != null){
+    const on = !!data.pump;
+    if (on !== state.pumpOn){
+      addLog(`Pump ${on ? 'STARTED' : 'STOPPED'} — reported by ESP32`);
+      if (on){ waterStats.cycles++; waterStats.lastWatered = new Date(); }
     }
-  } else {
-    if (state.pumpOn !== state.manualOn) setPump(state.manualOn, 'Manual ' + (state.manualOn?'start':'stop'));
+    state.pumpOn = on;
   }
-
-  // Soil moisture dynamics
-  if (state.pumpOn) state.soil += rnd(1.2, 2.2);
-  else state.soil -= rnd(0.25, 0.7);            // evaporation/uptake
-  if (raining) state.soil += rnd(0.8, 1.6);     // rain wets soil
-  state.soil = clamp(state.soil, 0, 100);
-
-  // Tank drains while pumping
-  if (state.pumpOn) state.tank -= rnd(0.3, 0.6);
-  if (raining && state.tank < 100) state.tank += rnd(0.1, 0.4); // rain refills a bit
-  state.tank = clamp(state.tank, 0, 100);
-
-  // Temp/humidity wander; rain cools & humidifies
-  state.temp = clamp(state.temp + rnd(-0.3,0.3) + (day*0.05) - (raining?0.4:0), 18, 42);
-  state.hum  = clamp(state.hum + rnd(-1,1) + (raining?2:-0.3), 30, 98);
-
-  // Solar output follows daylight; battery charges from solar, discharges with pump
-  state.solar = clamp(day * 20 * rnd(0.85,1.0) - (raining?6:0), 0, 22);
-  let charge = state.solar*0.012 - (state.pumpOn?0.05:0) - 0.004;
-  state.batt = clamp(state.batt + charge, 11.4, 13.2);
-
-  history.push({ soil: state.soil, temp: state.temp, pump: state.pumpOn });
-  if (history.length > MAX_POINTS) history.shift();
-
+  lastUpdate = Date.now();
+  setOnline(true);
   render();
 }
 
-function setPump(on, reason){
-  if (state.pumpOn === on) return;
-  state.pumpOn = on;
-  addLog(`Pump ${on?'STARTED':'STOPPED'} — ${reason}`);
+// Sample the current state once a second so the 60s chart keeps scrolling
+// even when the ESP32 pushes readings less frequently.
+function pushHistory(){
+  const today = new Date().toDateString();
+  if (today !== waterStats.day) waterStats = { runtimeSec: 0, cycles: 0, lastWatered: null, day: today };
+  if (state.pumpOn) waterStats.runtimeSec++;
+  history.push({ soil: state.soil, temp: state.temp, pump: state.pumpOn });
+  if (history.length > MAX_POINTS) history.shift();
+  render();
 }
 
 /* ---------- LOG ---------- */
@@ -630,15 +635,12 @@ function render(){
     document.getElementById('pumpSub').textContent = 'Idle — soil moisture sufficient';
   }
 
-  // Rain
-  const raining = state.rain > 45;
-  document.getElementById('rainIcon').textContent = raining ? '🌧️' : '☀️';
-  document.getElementById('rainState').textContent = raining ? 'Raining' : 'Dry';
-  document.getElementById('rainSub').textContent = raining ? 'Rain detected — watering paused' : 'No rain detected — watering enabled';
-  const rb = document.getElementById('rainBar');
-  rb.style.width = Math.round(state.rain) + '%';
-  rb.style.boxShadow = '0 0 12px rgba(47,143,214,.5)';
-  document.getElementById('rainPct').textContent = Math.round(state.rain) + '%';
+  // Watering activity
+  document.getElementById('runtimeVal').textContent = fmtDuration(waterStats.runtimeSec);
+  document.getElementById('cyclesVal').textContent = waterStats.cycles;
+  const lw = waterStats.lastWatered;
+  document.getElementById('lastWateredSub').textContent =
+    'Last watered: ' + (lw ? `${pad(lw.getHours())}:${pad(lw.getMinutes())}` : '—');
 
   // Temp / hum
   document.getElementById('tempVal').textContent = state.temp.toFixed(1);
@@ -656,7 +658,7 @@ function render(){
 
   // Battery / solar
   document.getElementById('battVal').textContent = state.batt.toFixed(2);
-  const battPctNum = Math.round(clamp((state.batt - 11.6) / (12.8 - 11.6) * 100, 0, 100));
+  const battPctNum = Math.round(clamp((state.batt - 3.0) / (4.2 - 3.0) * 100, 0, 100));
   document.getElementById('battPct').textContent = 'Battery ' + battPctNum + '%';
   const bb = document.getElementById('battBar');
   bb.style.width = battPctNum + '%';
@@ -748,23 +750,47 @@ function tickClock(){
 const autoBtn = document.getElementById('autoBtn');
 const manualBtn = document.getElementById('manualBtn');
 const pumpToggle = document.getElementById('pumpToggle');
-autoBtn.onclick = () => { state.mode='auto'; autoBtn.classList.add('active'); manualBtn.classList.remove('active'); autoBtn.setAttribute('aria-pressed','true'); manualBtn.setAttribute('aria-pressed','false'); pumpToggle.style.display='none'; addLog('Mode → AUTO'); };
-manualBtn.onclick = () => { state.mode='manual'; manualBtn.classList.add('active'); autoBtn.classList.remove('active'); manualBtn.setAttribute('aria-pressed','true'); autoBtn.setAttribute('aria-pressed','false'); pumpToggle.style.display='block'; state.manualOn=state.pumpOn; updateToggleLabel(); addLog('Mode → MANUAL'); };
-pumpToggle.onclick = () => { state.manualOn = !state.manualOn; updateToggleLabel(); };
+autoBtn.onclick = () => { state.mode='auto'; autoBtn.classList.add('active'); manualBtn.classList.remove('active'); autoBtn.setAttribute('aria-pressed','true'); manualBtn.setAttribute('aria-pressed','false'); pumpToggle.style.display='none'; writeMode('auto'); addLog('Mode → AUTO'); };
+manualBtn.onclick = () => { state.mode='manual'; manualBtn.classList.add('active'); autoBtn.classList.remove('active'); manualBtn.setAttribute('aria-pressed','true'); autoBtn.setAttribute('aria-pressed','false'); pumpToggle.style.display='block'; state.manualOn=state.pumpOn; updateToggleLabel(); writeMode('manual'); addLog('Mode → MANUAL'); };
+pumpToggle.onclick = () => { state.manualOn = !state.manualOn; updateToggleLabel(); writeManualPump(state.manualOn); };
 function updateToggleLabel(){
   pumpToggle.textContent = state.manualOn ? 'Turn Pump OFF' : 'Turn Pump ON';
   pumpToggle.style.background = state.manualOn ? 'linear-gradient(180deg,#ec6b66,#e2554f)' : 'linear-gradient(180deg,#38b063,#2fa257)';
   pumpToggle.style.boxShadow = state.manualOn ? '0 6px 18px rgba(226,85,79,.34), inset 0 1px 0 rgba(255,255,255,.3)' : '0 6px 18px rgba(47,162,87,.32), inset 0 1px 0 rgba(255,255,255,.3)';
 }
 
+// Push control changes to Firebase so the ESP32 can act on them.
+function writeMode(mode){ set(ref(db, 'wateringSystem/mode'), mode).catch(e => addLog('Write failed: ' + e.message)); }
+function writeManualPump(on){ set(ref(db, 'wateringSystem/manualPump'), on).catch(e => addLog('Write failed: ' + e.message)); }
+
+/* ---------- CONNECTION STATUS ---------- */
+const onlinePill = document.getElementById('onlinePill');
+const onlineText = document.getElementById('onlineText');
+function setOnline(ok){
+  onlineText.textContent = ok ? 'ESP32 Online' : 'ESP32 Offline';
+  onlinePill.style.opacity = ok ? '1' : '.5';
+}
+
 /* ---------- BOOT ---------- */
-addLog('System initialized — ESP32 connected');
-addLog('Sensors calibrated · AUTO mode active');
+addLog('Dashboard started — connecting to Firebase…');
 tickClock();
 render();
 setInterval(tickClock, 1000);
-setInterval(step, 1000);
+setInterval(pushHistory, 1000);
 window.addEventListener('resize', drawChart);
+
+// Subscribe to live sensor data from the ESP32
+onValue(ref(db, 'wateringSystem'), (snapshot) => {
+  applyData(snapshot.val());
+}, (err) => {
+  addLog('Firebase error: ' + err.message);
+  setOnline(false);
+});
+
+// Mark the system offline if no fresh data arrives for 15s
+setInterval(() => {
+  if (Date.now() - lastUpdate > 15000) setOnline(false);
+}, 5000);
 </script>
 </body>
 </html>
