@@ -18,8 +18,8 @@
 #include <DHT.h>
 
 /* ---------- WiFi ---------- */
-const char* WIFI_SSID     = "SmartBro_3DA4";
-const char* WIFI_PASSWORD = "smartbro";
+const char* WIFI_SSID     = "Eman";
+const char* WIFI_PASSWORD = "12345678902";
 
 /* ---------- Firebase ---------- */
 // Firebase console → Project settings → General → Web API Key
@@ -126,6 +126,10 @@ void loop() {
     Firebase.RTDB.setFloat(&fbdo, "/wateringSystem/battery",    batteryVoltage);
     Firebase.RTDB.setFloat(&fbdo, "/wateringSystem/solar",      0);  // no solar sensor yet
     Firebase.RTDB.setBool (&fbdo, "/wateringSystem/pump",       pumpState);
+
+    // Heartbeat: server-side timestamp the dashboard uses to detect if the
+    // device is online. Stops updating the moment the ESP32 loses power/WiFi.
+    Firebase.RTDB.setTimestamp(&fbdo, "/wateringSystem/lastSeen");
 
     Serial.printf("soil=%d%% tank=%d%% temp=%.1f hum=%.0f batt=%.2fV pump=%s mode=%s\n",
                   soilPercent, tankPercent, temp, hum, batteryVoltage,

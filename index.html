@@ -725,18 +725,22 @@ function fmtDuration(sec){
 }
 
 /* ---------- LIVE DATA ---------- */
-let lastUpdate = 0;
+let lastUpdate = 0;        // client-clock ms of the last genuine ESP32 report
+let serverOffset = 0;      // (server clock − client clock) in ms, from Firebase
+const ONLINE_TIMEOUT = 15000;
 
 // Map an incoming Firebase snapshot onto the dashboard state, then render.
 function applyData(data){
   if (!data) return;
-  if (data.soil        != null) state.soil  = +data.soil;
-  if (data.temperature != null) state.temp  = +data.temperature;
-  if (data.humidity    != null) state.hum   = +data.humidity;
-  if (data.waterLevel  != null) state.tank  = +data.waterLevel;
-  if (data.battery     != null) state.batt  = +data.battery;
-  if (data.solar       != null) state.solar = +data.solar;
+  let gotSensor = false;
+  if (data.soil        != null){ state.soil  = +data.soil;        gotSensor = true; }
+  if (data.temperature != null){ state.temp  = +data.temperature; gotSensor = true; }
+  if (data.humidity    != null){ state.hum   = +data.humidity;    gotSensor = true; }
+  if (data.waterLevel  != null){ state.tank  = +data.waterLevel;  gotSensor = true; }
+  if (data.battery     != null){ state.batt  = +data.battery;     gotSensor = true; }
+  if (data.solar       != null){ state.solar = +data.solar;       gotSensor = true; }
   if (data.pump        != null){
+    gotSensor = true;
     const on = !!data.pump;
     if (on !== state.pumpOn){
       addLog(`Pump ${on ? 'STARTED' : 'STOPPED'} — reported by ESP32`);
@@ -744,8 +748,18 @@ function applyData(data){
     }
     state.pumpOn = on;
   }
-  lastUpdate = Date.now();
-  setOnline(true);
+
+  // ESP32 presence. `mode`/`manualPump` are written BY this dashboard, so they
+  // must NOT count as the device being alive. Prefer the device's own heartbeat
+  // (lastSeen = a Firebase server timestamp); otherwise fall back to "did fresh
+  // sensor data just arrive", guarded by the staleness watchdog below.
+  if (data.lastSeen != null){
+    if (Date.now() + serverOffset - data.lastSeen < ONLINE_TIMEOUT){
+      lastUpdate = Date.now(); setOnline(true);
+    }
+  } else if (gotSensor){
+    lastUpdate = Date.now(); setOnline(true);
+  }
   render();
 }
 
@@ -972,6 +986,9 @@ setInterval(tickClock, 1000);
 setInterval(pushHistory, 1000);
 window.addEventListener('resize', drawChart);
 
+// Keep client/server clocks aligned so lastSeen freshness is accurate.
+onValue(ref(db, '.info/serverTimeOffset'), (snap) => { serverOffset = snap.val() || 0; });
+
 // Subscribe to live sensor data from the ESP32
 onValue(ref(db, 'wateringSystem'), (snapshot) => {
   applyData(snapshot.val());
@@ -980,9 +997,9 @@ onValue(ref(db, 'wateringSystem'), (snapshot) => {
   setOnline(false);
 });
 
-// Mark the system offline if no fresh data arrives for 15s
+// Mark the system offline if no genuine ESP32 report arrives within the window
 setInterval(() => {
-  if (Date.now() - lastUpdate > 15000) setOnline(false);
+  if (Date.now() - lastUpdate > ONLINE_TIMEOUT) setOnline(false);
 }, 5000);
 </script>
 </body>
