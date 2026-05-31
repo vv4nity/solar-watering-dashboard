@@ -16,6 +16,8 @@
 #include "addons/TokenHelper.h"   // ships with the Firebase library
 #include "addons/RTDBHelper.h"    // ships with the Firebase library
 #include <DHT.h>
+#include "soc/soc.h"              // for the brownout-detector workaround
+#include "soc/rtc_cntl_reg.h"
 
 /* ---------- WiFi ---------- */
 const char* WIFI_SSID     = "Eman";
@@ -54,8 +56,73 @@ bool   manualPump = false;
 unsigned long lastPush = 0;
 const unsigned long PUSH_INTERVAL = 2000;  // ms
 
+/* ---------- WiFi helpers ---------- */
+const char* wifiStatusStr(wl_status_t s) {
+  switch (s) {
+    case WL_IDLE_STATUS:     return "IDLE";
+    case WL_NO_SSID_AVAIL:   return "NO_SSID_AVAIL (network not found — 5GHz? hidden? typo?)";
+    case WL_CONNECTED:       return "CONNECTED";
+    case WL_CONNECT_FAILED:  return "CONNECT_FAILED (wrong password?)";
+    case WL_CONNECTION_LOST: return "CONNECTION_LOST";
+    case WL_DISCONNECTED:    return "DISCONNECTED";
+    default:                 return "UNKNOWN";
+  }
+}
+
+// List nearby 2.4GHz networks so you can confirm the SSID is visible and which
+// band/channel it's on (the ESP32 radio CANNOT see 5GHz networks at all).
+void scanNetworks() {
+  Serial.println("\nScanning for 2.4GHz networks...");
+  int n = WiFi.scanNetworks();
+  if (n <= 0) { Serial.println("  (none found — is your router 2.4GHz enabled?)"); return; }
+  for (int i = 0; i < n; i++) {
+    Serial.printf("  %2d) %-24s  RSSI %ddBm  ch%d  %s\n",
+                  i + 1, WiFi.SSID(i).c_str(), WiFi.RSSI(i), WiFi.channel(i),
+                  WiFi.encryptionType(i) == WIFI_AUTH_OPEN ? "open" : "secured");
+  }
+  WiFi.scanDelete();
+}
+
+void connectWiFi() {
+  WiFi.persistent(false);
+  WiFi.mode(WIFI_STA);          // station mode only
+  WiFi.disconnect(true, true);  // clear any stale config
+  WiFi.setSleep(false);         // keep radio awake (helps weak/flaky links)
+  delay(200);
+
+  scanNetworks();
+
+  Serial.printf("\nConnecting to \"%s\"", WIFI_SSID);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+  unsigned long start = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - start < 20000) {
+    delay(500); Serial.print(".");
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.printf("\nConnected. IP: %s  RSSI: %ddBm\n",
+                  WiFi.localIP().toString().c_str(), WiFi.RSSI());
+  } else {
+    Serial.printf("\nFailed: %s\n", wifiStatusStr(WiFi.status()));
+    Serial.println("Checklist: 2.4GHz band, exact SSID/password, signal strength.");
+    Serial.println("Restarting in 5s to retry...");
+    delay(5000);
+    ESP.restart();
+  }
+}
+
 void setup() {
+  // WORKAROUND: disable the brownout detector so a sagging USB supply doesn't
+  // reset the board the instant the WiFi radio powers up. This is a diagnostic
+  // band-aid — the real fix is a solid 5V supply / good data cable (see notes).
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
+
   Serial.begin(115200);
+  delay(1500);                          // let USB-serial settle so we don't miss the banner
+  Serial.println("\n\n=== Firmware booting ===");
+  Serial.printf("Reset reason logged above. Free heap: %u bytes\n", ESP.getFreeHeap());
+  Serial.flush();
 
   pinMode(RELAY_PIN, OUTPUT);
   pinMode(SOIL_PIN, INPUT);
@@ -64,10 +131,7 @@ void setup() {
 
   dht.begin();
 
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  Serial.print("Connecting to WiFi");
-  while (WiFi.status() != WL_CONNECTED) { delay(300); Serial.print("."); }
-  Serial.printf("\nConnected. IP: %s\n", WiFi.localIP().toString().c_str());
+  connectWiFi();
 
   config.api_key      = API_KEY;
   config.database_url = DATABASE_URL;
