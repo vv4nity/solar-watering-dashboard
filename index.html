@@ -352,17 +352,38 @@
   .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 6px; box-shadow: 0 0 6px currentColor; }
 
   /* ---------- Log ---------- */
-  .log { min-height: 0; overflow-y: auto; font-size: 13px; flex: 1; padding-right: 6px; }
+  .log { min-height: 0; overflow-y: auto; flex: 1; padding-right: 6px; display: flex; flex-direction: column; gap: 6px; }
   .log::-webkit-scrollbar { width: 6px; }
   .log::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 999px; }
-  .log div {
-    padding: 8px 0; border-bottom: 1px solid var(--line); display: flex; gap: 12px; align-items: baseline;
-    animation: fadeIn .4s ease;
+  .log:empty::before {
+    content: "No activity yet — waiting for events…";
+    color: var(--muted); font-size: 12.5px; font-style: italic; padding: 12px 4px; display: block;
   }
-  .log div:last-child { border-bottom: none; }
-  .log time { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; font-size: 12px; font-weight: 600; }
-  .log span { color: var(--ink-2); font-weight: 500; }
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+  .log div {
+    padding: 9px 12px; border-radius: var(--r-sm);
+    display: flex; gap: 11px; align-items: center;
+    background: var(--card-soft);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--line-strong);
+    animation: logIn .4s cubic-bezier(.2,.7,.3,1);
+    transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
+  }
+  .log div:hover { transform: translateX(3px); box-shadow: var(--shadow-sm); background: rgba(255,255,255,.8); }
+  .ev-dot {
+    flex: none; width: 9px; height: 9px; border-radius: 50%;
+    background: var(--muted); box-shadow: 0 0 0 3px rgba(20,42,24,.04);
+  }
+  .log time { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; font-size: 11.5px; font-weight: 700; letter-spacing: .02em; }
+  .log .msg { color: var(--ink-2); font-weight: 500; font-size: 12.5px; line-height: 1.35; }
+  .log .ev-success { border-left-color: var(--green); }
+  .log .ev-success .ev-dot { background: var(--green); box-shadow: 0 0 8px rgba(47,162,87,.7); }
+  .log .ev-info { border-left-color: var(--blue); }
+  .log .ev-info .ev-dot { background: var(--blue); box-shadow: 0 0 8px rgba(47,143,214,.7); }
+  .log .ev-warn { border-left-color: var(--amber); }
+  .log .ev-warn .ev-dot { background: var(--amber); box-shadow: 0 0 8px rgba(240,163,30,.7); }
+  .log .ev-error { border-left-color: var(--red); }
+  .log .ev-error .ev-dot { background: var(--red); box-shadow: 0 0 8px rgba(226,85,79,.7); }
+  @keyframes logIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 
   footer { text-align: center; color: var(--muted); font-size: 11px; margin-top: 10px; line-height: 1.5; font-weight: 500; flex: none; }
 
@@ -598,10 +619,18 @@ function pushHistory(){
 /* ---------- LOG ---------- */
 const logEl = document.getElementById('log');
 function pad(n){ return String(n).padStart(2,'0'); }
+function logType(msg){
+  const m = msg.toLowerCase();
+  if (/fail|error|denied/.test(m)) return 'ev-error';
+  if (/offline|low|warn|stopped/.test(m)) return 'ev-warn';
+  if (/started|online|connected/.test(m)) return 'ev-success';
+  return 'ev-info';
+}
 function addLog(msg){
   const d = new Date();
   const row = document.createElement('div');
-  row.innerHTML = `<time>${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}</time><span>${msg}</span>`;
+  row.className = logType(msg);
+  row.innerHTML = `<span class="ev-dot"></span><time>${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}</time><span class="msg">${msg}</span>`;
   logEl.prepend(row);
   while (logEl.children.length > 40) logEl.removeChild(logEl.lastChild);
 }
