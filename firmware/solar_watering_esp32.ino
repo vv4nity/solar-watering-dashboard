@@ -42,8 +42,8 @@ const char* WIFI_PASSWORD = "12345678902";
 
 DHT dht(DHTPIN, DHTTYPE);
 
-FirebaseData fbdo;        // for writes
-FirebaseData ctrlFbdo;   // for reading control values
+FirebaseData fbdo;        // for sensor writes
+FirebaseData streamFbdo;  // dedicated stream for INSTANT control updates
 FirebaseAuth auth;
 FirebaseConfig config;
 
@@ -141,15 +141,36 @@ void setup() {
 
   Firebase.begin(&config, &auth);
   Firebase.reconnectWiFi(true);
+
+  // Open a realtime stream on the control node. Firebase will PUSH changes to
+  // mode/manualPump the instant the dashboard writes them — no slow polling.
+  if (!Firebase.RTDB.beginStream(&streamFbdo, "/wateringSystem"))
+    Serial.printf("Stream begin failed: %s\n", streamFbdo.errorReason().c_str());
 }
 
 void loop() {
-  // --- Read control state from the dashboard ---
-  if (Firebase.ready()) {
-    if (Firebase.RTDB.getString(&ctrlFbdo, "/wateringSystem/mode"))
-      mode = ctrlFbdo.stringData();
-    if (Firebase.RTDB.getBool(&ctrlFbdo, "/wateringSystem/manualPump"))
-      manualPump = ctrlFbdo.boolData();
+  // --- Receive control changes instantly via the stream ---
+  if (!Firebase.RTDB.readStream(&streamFbdo))
+    Serial.printf("readStream error: %s\n", streamFbdo.errorReason().c_str());
+
+  if (streamFbdo.streamTimeout())
+    Serial.println("Stream timed out, resuming...");
+
+  if (streamFbdo.streamAvailable()) {
+    String path = streamFbdo.dataPath();
+    if (path == "/mode") {
+      mode = streamFbdo.stringData();
+      Serial.printf("Control: mode -> %s\n", mode.c_str());
+    } else if (path == "/manualPump") {
+      manualPump = streamFbdo.boolData();
+      Serial.printf("Control: manualPump -> %s\n", manualPump ? "ON" : "OFF");
+    } else if (path == "/") {
+      // Initial snapshot of the whole node — pull the control values out of it.
+      FirebaseJson *json = streamFbdo.to<FirebaseJson *>();
+      FirebaseJsonData r;
+      if (json && json->get(r, "mode"))       mode = r.to<String>();
+      if (json && json->get(r, "manualPump")) manualPump = r.to<bool>();
+    }
   }
 
   // --- Read sensors ---
@@ -200,5 +221,5 @@ void loop() {
                   pumpState ? "ON" : "OFF", mode.c_str());
   }
 
-  delay(100);
+  delay(20);   // keep the loop tight so the stream + relay react quickly
 }
