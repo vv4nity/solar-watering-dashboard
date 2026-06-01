@@ -972,9 +972,11 @@ function updateToggleLabel(){
   pumpToggle.style.boxShadow = state.manualOn ? '0 6px 18px rgba(226,85,79,.34), inset 0 1px 0 rgba(255,255,255,.3)' : '0 6px 18px rgba(47,162,87,.32), inset 0 1px 0 rgba(255,255,255,.3)';
 }
 
-// Push control changes to Firebase so the ESP32 can act on them.
-function writeMode(mode){ set(ref(db, 'wateringSystem/mode'), mode).catch(e => addLog('Write failed: ' + e.message)); }
-function writeManualPump(on){ set(ref(db, 'wateringSystem/manualPump'), on).catch(e => addLog('Write failed: ' + e.message)); }
+// Push control changes to a dedicated /control subtree the device only READS
+// (never writes), so the device's frequent sensor writes can't flood/drop the
+// control stream. The firmware streams /wateringSystem/control to match.
+function writeMode(mode){ set(ref(db, 'wateringSystem/control/mode'), mode).catch(e => addLog('Write failed: ' + e.message)); }
+function writeManualPump(on){ set(ref(db, 'wateringSystem/control/manualPump'), on).catch(e => addLog('Write failed: ' + e.message)); }
 
 /* ---------- MOCK BATTERY & SOLAR ---------- */
 // Gentle fake values driven by the REAL time of day: no sunlight at night,
