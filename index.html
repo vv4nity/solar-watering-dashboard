@@ -718,8 +718,31 @@ let state = {
 const MAX_POINTS = 60;
 let history = []; // {soil, temp, pump}
 
-// Watering stats, reset daily
+// Watering stats, reset daily. Persisted to localStorage so a page refresh
+// doesn't wipe today's runtime / cycles / last-watered.
+const STATS_KEY = 'wateringStats';
 let waterStats = { runtimeSec: 0, cycles: 0, lastWatered: null, day: new Date().toDateString() };
+
+function saveStats(){
+  try {
+    localStorage.setItem(STATS_KEY, JSON.stringify({
+      runtimeSec: waterStats.runtimeSec,
+      cycles: waterStats.cycles,
+      lastWatered: waterStats.lastWatered ? waterStats.lastWatered.getTime() : null,
+      day: waterStats.day
+    }));
+  } catch (e) {}
+}
+function loadStats(){
+  try {
+    const s = JSON.parse(localStorage.getItem(STATS_KEY) || 'null');
+    if (!s || s.day !== new Date().toDateString()) return;   // ignore stale / previous-day data
+    waterStats.runtimeSec  = s.runtimeSec || 0;
+    waterStats.cycles      = s.cycles || 0;
+    waterStats.lastWatered = s.lastWatered ? new Date(s.lastWatered) : null;
+    waterStats.day         = s.day;
+  } catch (e) {}
+}
 
 function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 function fmtDuration(sec){
@@ -734,6 +757,7 @@ function fmtDuration(sec){
 let lastUpdate = 0;        // client-clock ms of the last genuine ESP32 report
 let serverOffset = 0;      // (server clock − client clock) in ms, from Firebase
 let lastDevicePump = false;// last pump state the DEVICE actually reported
+let pumpInitialized = false;// false until we've synced to the device's first report
 const ONLINE_TIMEOUT = 15000;
 
 // Map an incoming Firebase snapshot onto the dashboard state, then render.
@@ -750,11 +774,16 @@ function applyData(data){
   if (data.pump        != null){
     gotSensor = true;
     const on = !!data.pump;
-    // Log only on a genuine change in what the DEVICE reports, so optimistic
-    // button presses don't trigger contradictory "STARTED/STOPPED" entries.
-    if (on !== lastDevicePump){
+    if (!pumpInitialized){
+      // First report after (re)load — sync without logging or counting a cycle,
+      // so refreshing mid-pump doesn't create a phantom "STARTED" / extra cycle.
+      lastDevicePump = on;
+      pumpInitialized = true;
+    } else if (on !== lastDevicePump){
+      // Log only on a genuine change in what the DEVICE reports, so optimistic
+      // button presses don't trigger contradictory "STARTED/STOPPED" entries.
       addLog(`Pump ${on ? 'STARTED' : 'STOPPED'} — reported by ESP32`);
-      if (on){ waterStats.cycles++; waterStats.lastWatered = new Date(); }
+      if (on){ waterStats.cycles++; waterStats.lastWatered = new Date(); saveStats(); }
       lastDevicePump = on;
     }
     state.pumpOn = on;
@@ -778,8 +807,8 @@ function applyData(data){
 // even when the ESP32 pushes readings less frequently.
 function pushHistory(){
   const today = new Date().toDateString();
-  if (today !== waterStats.day) waterStats = { runtimeSec: 0, cycles: 0, lastWatered: null, day: today };
-  if (state.pumpOn) waterStats.runtimeSec++;
+  if (today !== waterStats.day){ waterStats = { runtimeSec: 0, cycles: 0, lastWatered: null, day: today }; saveStats(); }
+  if (state.pumpOn){ waterStats.runtimeSec++; saveStats(); }
   history.push({ soil: state.soil, temp: state.temp, pump: state.pumpOn });
   if (history.length > MAX_POINTS) history.shift();
   render();
@@ -1015,6 +1044,7 @@ function setOnline(ok){
 })();
 
 addLog('Dashboard started — connecting to Firebase…');
+loadStats();          // restore today's runtime / cycles / last-watered after a refresh
 tickClock();
 render();
 setInterval(tickClock, 1000);
