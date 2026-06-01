@@ -698,6 +698,10 @@ const db  = getDatabase(app);
 const THRESHOLD = 35;        // % soil moisture to trigger watering (display only — the ESP32 owns the real logic)
 const THRESHOLD_HIGH = 65;   // % to stop watering
 
+// No battery/solar sensors wired yet -> show gentle mock values for those two
+// cards while every other reading stays live from the device. Set false later.
+const MOCK_POWER = true;
+
 let state = {
   soil: 52,        // %
   temp: 28,        // °C
@@ -740,8 +744,8 @@ function applyData(data){
   if (data.humidity    != null){ state.hum   = +data.humidity;    gotSensor = true; }
   if (data.waterLevel   != null){ state.tank   = +data.waterLevel;   gotSensor = true; }
   if (data.waterHeightCm != null){ state.height = +data.waterHeightCm; gotSensor = true; }
-  if (data.battery     != null){ state.batt  = +data.battery;     gotSensor = true; }
-  if (data.solar       != null){ state.solar = +data.solar;       gotSensor = true; }
+  if (data.battery     != null && !MOCK_POWER){ state.batt  = +data.battery; gotSensor = true; }
+  if (data.solar       != null && !MOCK_POWER){ state.solar = +data.solar;   gotSensor = true; }
   if (data.pump        != null){
     gotSensor = true;
     const on = !!data.pump;
@@ -965,6 +969,16 @@ function updateToggleLabel(){
 function writeMode(mode){ set(ref(db, 'wateringSystem/mode'), mode).catch(e => addLog('Write failed: ' + e.message)); }
 function writeManualPump(on){ set(ref(db, 'wateringSystem/manualPump'), on).catch(e => addLog('Write failed: ' + e.message)); }
 
+/* ---------- MOCK BATTERY & SOLAR ---------- */
+// Gentle, slowly-drifting fake values for the two cards without sensors.
+function tickPower(){
+  // Solar follows a slow sine "sun" curve through the day.
+  state.solar = clamp(11 + Math.sin(Date.now() / 120000) * 6 + (Math.random() - 0.5), 0, 20);
+  // Battery charges in sun, drains slightly otherwise; stays in a healthy band.
+  state.batt  = clamp(state.batt + (state.solar > 4 ? 0.01 : -0.008), 3.6, 4.15);
+  render();
+}
+
 /* ---------- CONNECTION STATUS ---------- */
 const onlinePill = document.getElementById('onlinePill');
 const onlineText = document.getElementById('onlineText');
@@ -989,6 +1003,13 @@ render();
 setInterval(tickClock, 1000);
 setInterval(pushHistory, 1000);
 window.addEventListener('resize', drawChart);
+
+// Mock battery + solar (no sensors for these yet).
+if (MOCK_POWER){
+  state.batt = 3.95; state.solar = 14;
+  tickPower();
+  setInterval(tickPower, 4000);
+}
 
 // Keep client/server clocks aligned so lastSeen freshness is accurate.
 onValue(ref(db, '.info/serverTimeOffset'), (snap) => { serverOffset = snap.val() || 0; });
