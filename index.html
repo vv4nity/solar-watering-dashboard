@@ -702,6 +702,14 @@ const THRESHOLD_HIGH = 65;   // % to stop watering
 // cards while every other reading stays live from the device. Set false later.
 const MOCK_POWER = true;
 
+// The water sensor only swings in a narrow raw band (~36–40%). Mock the tank
+// display so that band stretches across a meaningful 0–100% on a 5 m tank:
+//   raw 36% -> shows 5%  (needs refill),   raw 40% -> shows 98% (full).
+const MOCK_TANK = true;
+const TANK_HEIGHT_M = 5;                       // displayed tank height (mock)
+const TANK_RAW_LOW = 36,  TANK_RAW_HIGH = 40;  // raw sensor band
+const TANK_DISP_LOW = 5,  TANK_DISP_HIGH = 98; // mapped display band
+
 let state = {
   soil: 52,        // %
   temp: 28,        // °C
@@ -888,8 +896,13 @@ function render(){
   document.getElementById('humState').textContent =
     h < 30 ? 'Dry air' : h < 70 ? 'Comfortable' : 'Humid';
 
-  // Tank
-  const t = Math.round(state.tank);
+  // Tank — optionally remap the narrow raw sensor band to a full 0–100% display.
+  let t = Math.round(state.tank);
+  if (MOCK_TANK){
+    t = Math.round(clamp(
+      TANK_DISP_LOW + (state.tank - TANK_RAW_LOW) / (TANK_RAW_HIGH - TANK_RAW_LOW) * (TANK_DISP_HIGH - TANK_DISP_LOW),
+      0, 100));
+  }
   document.getElementById('tankVal').textContent = t;
   const water = document.getElementById('tankWater');
   water.style.height = t + '%';
@@ -898,7 +911,9 @@ function render(){
   water.style.background = `linear-gradient(180deg, ${tcol}, ${tcol}cc)`;
   document.getElementById('tankSub').textContent =
     t < 15 ? 'LOW — refill tank soon' : t < 35 ? 'Getting low' : 'Tank capacity remaining';
-  document.getElementById('tankHeight').textContent = 'Water height: ' + state.height.toFixed(1) + ' cm';
+  document.getElementById('tankHeight').textContent = MOCK_TANK
+    ? 'Water height: ' + (t / 100 * TANK_HEIGHT_M).toFixed(2) + ' m'
+    : 'Water height: ' + state.height.toFixed(1) + ' cm';
 
   // Battery / solar
   document.getElementById('battVal').textContent = state.batt.toFixed(2);
