@@ -621,6 +621,7 @@
         <div class="tank-info">
           <div class="metric"><b id="tankVal">0</b><span>%</span></div>
           <div class="sub" id="tankSub">Tank capacity remaining</div>
+          <div class="sub" id="tankHeight">Water height: — cm</div>
         </div>
       </div>
     </div>
@@ -702,6 +703,7 @@ let state = {
   temp: 28,        // °C
   hum: 65,         // %
   tank: 88,        // %
+  height: 0,       // cm of water in the tank
   batt: 3.9,       // V (single 18650 li-ion: ~3.0 empty, ~4.2 full)
   solar: 14.0,     // W
   pumpOn: false,
@@ -736,7 +738,8 @@ function applyData(data){
   if (data.soil        != null){ state.soil  = +data.soil;        gotSensor = true; }
   if (data.temperature != null){ state.temp  = +data.temperature; gotSensor = true; }
   if (data.humidity    != null){ state.hum   = +data.humidity;    gotSensor = true; }
-  if (data.waterLevel  != null){ state.tank  = +data.waterLevel;  gotSensor = true; }
+  if (data.waterLevel   != null){ state.tank   = +data.waterLevel;   gotSensor = true; }
+  if (data.waterHeightCm != null){ state.height = +data.waterHeightCm; gotSensor = true; }
   if (data.battery     != null){ state.batt  = +data.battery;     gotSensor = true; }
   if (data.solar       != null){ state.solar = +data.solar;       gotSensor = true; }
   if (data.pump        != null){
@@ -851,6 +854,7 @@ function render(){
   water.style.background = `linear-gradient(180deg, ${tcol}, ${tcol}cc)`;
   document.getElementById('tankSub').textContent =
     t < 15 ? 'LOW — refill tank soon' : t < 35 ? 'Getting low' : 'Tank capacity remaining';
+  document.getElementById('tankHeight').textContent = 'Water height: ' + state.height.toFixed(1) + ' cm';
 
   // Battery / solar
   document.getElementById('battVal').textContent = state.batt.toFixed(2);
