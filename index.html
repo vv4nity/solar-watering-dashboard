@@ -710,6 +710,11 @@ const TANK_HEIGHT_M = 5;                       // displayed tank height (mock)
 const TANK_RAW_LOW = 36,  TANK_RAW_HIGH = 40;  // raw sensor band
 const TANK_DISP_LOW = 5,  TANK_DISP_HIGH = 98; // mapped display band
 
+// Demo: while the pump is ON, soil moisture climbs on the UI; when OFF it holds.
+// (Ignores the device's real soil reading so the demo stays controllable.)
+const MOCK_SOIL = true;
+const SOIL_FILL_RATE = 2;   // % moisture gained per second while pumping
+
 let state = {
   soil: 52,        // %
   temp: 28,        // °C
@@ -772,7 +777,7 @@ const ONLINE_TIMEOUT = 15000;
 function applyData(data){
   if (!data) return;
   let gotSensor = false;
-  if (data.soil        != null){ state.soil  = +data.soil;        gotSensor = true; }
+  if (data.soil        != null && !MOCK_SOIL){ state.soil = +data.soil; gotSensor = true; }
   if (data.temperature != null){ state.temp  = +data.temperature; gotSensor = true; }
   if (data.humidity    != null){ state.hum   = +data.humidity;    gotSensor = true; }
   if (data.waterLevel   != null){ state.tank   = +data.waterLevel;   gotSensor = true; }
@@ -817,6 +822,8 @@ function pushHistory(){
   const today = new Date().toDateString();
   if (today !== waterStats.day){ waterStats = { runtimeSec: 0, cycles: 0, lastWatered: null, day: today }; saveStats(); }
   if (state.pumpOn){ waterStats.runtimeSec++; saveStats(); }
+  // Demo: moisture rises while pumping, holds when off.
+  if (MOCK_SOIL && state.pumpOn) state.soil = clamp(state.soil + SOIL_FILL_RATE, 0, 100);
   history.push({ soil: state.soil, temp: state.temp, pump: state.pumpOn });
   if (history.length > MAX_POINTS) history.shift();
   render();
