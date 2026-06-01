@@ -702,19 +702,16 @@ const THRESHOLD_HIGH = 65;   // % to stop watering
 // cards while every other reading stays live from the device. Set false later.
 const MOCK_POWER = true;
 
-// The water sensor only swings in a narrow raw band (~36–40%). Mock the tank
-// display so that band stretches across a meaningful 0–100% on a 5 m tank:
-//   raw 36% -> shows 5%  (needs refill),   raw 40% -> shows 98% (full).
+// Demo tank: fully UI-driven on a 5 m tank. Drains while the pump runs, holds
+// when off; ignores the device's raw water sensor so the demo is controllable.
 const MOCK_TANK = true;
-const TANK_HEIGHT_M = 5;                       // displayed tank height (mock)
-const TANK_RAW_LOW = 36,  TANK_RAW_HIGH = 40;  // raw sensor band
-const TANK_DISP_LOW = 5,  TANK_DISP_HIGH = 98; // mapped display band
+const TANK_HEIGHT_M = 5;       // displayed tank height (meters)
+const TANK_DRAIN_RATE = 0.3;   // % tank level lost per second while pumping
 
-// Demo: while the pump is ON, soil moisture climbs on the UI; when OFF it holds.
-// (Ignores the device's real soil reading so the demo stays controllable.)
+// Demo soil: moisture climbs gently while pumping, dries out slowly when off.
 const MOCK_SOIL = true;
-const SOIL_FILL_RATE = 2;     // % moisture gained per second while pumping
-const SOIL_DRY_RATE = 0.15;   // % moisture lost per second while the pump is off
+const SOIL_FILL_RATE = 0.8;    // % moisture gained per second while pumping (realistic pace)
+const SOIL_DRY_RATE = 0.15;    // % moisture lost per second while the pump is off
 
 let state = {
   soil: 52,        // %
@@ -781,8 +778,8 @@ function applyData(data){
   if (data.soil        != null && !MOCK_SOIL){ state.soil = +data.soil; gotSensor = true; }
   if (data.temperature != null){ state.temp  = +data.temperature; gotSensor = true; }
   if (data.humidity    != null){ state.hum   = +data.humidity;    gotSensor = true; }
-  if (data.waterLevel   != null){ state.tank   = +data.waterLevel;   gotSensor = true; }
-  if (data.waterHeightCm != null){ state.height = +data.waterHeightCm; gotSensor = true; }
+  if (data.waterLevel   != null && !MOCK_TANK){ state.tank   = +data.waterLevel;   gotSensor = true; }
+  if (data.waterHeightCm != null && !MOCK_TANK){ state.height = +data.waterHeightCm; gotSensor = true; }
   if (data.battery     != null && !MOCK_POWER){ state.batt  = +data.battery; gotSensor = true; }
   if (data.solar       != null && !MOCK_POWER){ state.solar = +data.solar;   gotSensor = true; }
   if (data.pump        != null){
@@ -827,6 +824,8 @@ function pushHistory(){
   if (MOCK_SOIL){
     state.soil = clamp(state.soil + (state.pumpOn ? SOIL_FILL_RATE : -SOIL_DRY_RATE), 0, 100);
   }
+  // Demo: tank drains while pumping, holds when off.
+  if (MOCK_TANK && state.pumpOn) state.tank = clamp(state.tank - TANK_DRAIN_RATE, 0, 100);
   history.push({ soil: state.soil, temp: state.temp, pump: state.pumpOn });
   if (history.length > MAX_POINTS) history.shift();
   render();
@@ -906,13 +905,8 @@ function render(){
   document.getElementById('humState').textContent =
     h < 30 ? 'Dry air' : h < 70 ? 'Comfortable' : 'Humid';
 
-  // Tank — optionally remap the narrow raw sensor band to a full 0–100% display.
-  let t = Math.round(state.tank);
-  if (MOCK_TANK){
-    t = Math.round(clamp(
-      TANK_DISP_LOW + (state.tank - TANK_RAW_LOW) / (TANK_RAW_HIGH - TANK_RAW_LOW) * (TANK_DISP_HIGH - TANK_DISP_LOW),
-      0, 100));
-  }
+  // Tank (demo-driven 0–100% when MOCK_TANK; otherwise the raw device %).
+  const t = Math.round(state.tank);
   document.getElementById('tankVal').textContent = t;
   const water = document.getElementById('tankWater');
   water.style.height = t + '%';
