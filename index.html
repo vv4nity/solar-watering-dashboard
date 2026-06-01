@@ -733,6 +733,7 @@ function fmtDuration(sec){
 /* ---------- LIVE DATA ---------- */
 let lastUpdate = 0;        // client-clock ms of the last genuine ESP32 report
 let serverOffset = 0;      // (server clock − client clock) in ms, from Firebase
+let lastDevicePump = false;// last pump state the DEVICE actually reported
 const ONLINE_TIMEOUT = 15000;
 
 // Map an incoming Firebase snapshot onto the dashboard state, then render.
@@ -749,9 +750,12 @@ function applyData(data){
   if (data.pump        != null){
     gotSensor = true;
     const on = !!data.pump;
-    if (on !== state.pumpOn){
+    // Log only on a genuine change in what the DEVICE reports, so optimistic
+    // button presses don't trigger contradictory "STARTED/STOPPED" entries.
+    if (on !== lastDevicePump){
       addLog(`Pump ${on ? 'STARTED' : 'STOPPED'} — reported by ESP32`);
       if (on){ waterStats.cycles++; waterStats.lastWatered = new Date(); }
+      lastDevicePump = on;
     }
     state.pumpOn = on;
   }
