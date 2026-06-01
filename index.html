@@ -784,6 +784,13 @@ function pushHistory(){
 /* ---------- LOG ---------- */
 const logEl = document.getElementById('log');
 function pad(n){ return String(n).padStart(2,'0'); }
+// 12-hour clock with AM/PM. secs=true includes seconds.
+function fmt12(d, secs){
+  let h = d.getHours();
+  const ap = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${h}:${pad(d.getMinutes())}${secs ? ':' + pad(d.getSeconds()) : ''} ${ap}`;
+}
 function logType(msg){
   const m = msg.toLowerCase();
   if (/fail|error|denied/.test(m)) return 'ev-error';
@@ -795,7 +802,7 @@ function addLog(msg){
   const d = new Date();
   const row = document.createElement('div');
   row.className = logType(msg);
-  row.innerHTML = `<span class="ev-dot"></span><time>${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}</time><span class="msg">${msg}</span>`;
+  row.innerHTML = `<span class="ev-dot"></span><time>${fmt12(d, true)}</time><span class="msg">${msg}</span>`;
   logEl.prepend(row);
   while (logEl.children.length > 40) logEl.removeChild(logEl.lastChild);
 }
@@ -834,7 +841,7 @@ function render(){
   document.getElementById('cyclesVal').textContent = waterStats.cycles;
   const lw = waterStats.lastWatered;
   document.getElementById('lastWateredVal').textContent =
-    lw ? `${pad(lw.getHours())}:${pad(lw.getMinutes())}` : '—';
+    lw ? `${lw.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, ${fmt12(lw, false)}` : '—';
 
   // Temp / hum
   const tC = state.temp;
@@ -948,7 +955,7 @@ function drawLine(pts, color, lw){
 /* ---------- CLOCK ---------- */
 function tickClock(){
   const d = new Date();
-  document.getElementById('time').textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  document.getElementById('time').textContent = fmt12(d, true);
   document.getElementById('date').textContent = d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
 }
 
@@ -970,12 +977,16 @@ function writeMode(mode){ set(ref(db, 'wateringSystem/mode'), mode).catch(e => a
 function writeManualPump(on){ set(ref(db, 'wateringSystem/manualPump'), on).catch(e => addLog('Write failed: ' + e.message)); }
 
 /* ---------- MOCK BATTERY & SOLAR ---------- */
-// Gentle, slowly-drifting fake values for the two cards without sensors.
+// Gentle fake values driven by the REAL time of day: no sunlight at night,
+// rising in the morning, peaking around noon, gone again after sunset.
 function tickPower(){
-  // Solar follows a slow sine "sun" curve through the day.
-  state.solar = clamp(11 + Math.sin(Date.now() / 120000) * 6 + (Math.random() - 0.5), 0, 20);
-  // Battery charges in sun, drains slightly otherwise; stays in a healthy band.
-  state.batt  = clamp(state.batt + (state.solar > 4 ? 0.01 : -0.008), 3.6, 4.15);
+  const d = new Date();
+  const h = d.getHours() + d.getMinutes() / 60;     // 0..24, fractional
+  // Daylight ~6am–6pm, peaking at noon; 0 outside that window.
+  const sun = (h > 6 && h < 18) ? Math.sin((h - 6) / 12 * Math.PI) : 0;
+  state.solar = clamp(sun * 17 + (sun > 0 ? (Math.random() - 0.5) : 0), 0, 20);
+  // Battery charges when the sun is up, drains slowly at night.
+  state.batt  = clamp(state.batt + (state.solar > 1 ? 0.012 : -0.006), 3.5, 4.15);
   render();
 }
 
