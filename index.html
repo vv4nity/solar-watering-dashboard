@@ -819,14 +819,18 @@ function applyData(data){
 function pushHistory(){
   const today = new Date().toDateString();
   if (today !== waterStats.day){ waterStats = { runtimeSec: 0, cycles: 0, lastWatered: null, day: today }; saveStats(); }
-  if (state.pumpOn){ waterStats.runtimeSec++; saveStats(); }
+  // Base watering effects on the ESP32-CONFIRMED pump state (not the optimistic
+  // tap), so moisture/tank only change once the device actually grants the
+  // request — realistic. (The pump badge still flips instantly on tap.)
+  const pumping = lastDevicePump;
+  if (pumping){ waterStats.runtimeSec++; saveStats(); }
   // Demo: moisture rises while pumping, dries out slowly when the pump is off.
   if (MOCK_SOIL){
-    state.soil = clamp(state.soil + (state.pumpOn ? SOIL_FILL_RATE : -SOIL_DRY_RATE), 0, 100);
+    state.soil = clamp(state.soil + (pumping ? SOIL_FILL_RATE : -SOIL_DRY_RATE), 0, 100);
   }
   // Demo: tank drains while pumping, holds when off.
-  if (MOCK_TANK && state.pumpOn) state.tank = clamp(state.tank - TANK_DRAIN_RATE, 0, 100);
-  history.push({ soil: state.soil, temp: state.temp, pump: state.pumpOn });
+  if (MOCK_TANK && pumping) state.tank = clamp(state.tank - TANK_DRAIN_RATE, 0, 100);
+  history.push({ soil: state.soil, temp: state.temp, pump: pumping });
   if (history.length > MAX_POINTS) history.shift();
   render();
 }
