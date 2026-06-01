@@ -952,9 +952,9 @@ function tickClock(){
 const autoBtn = document.getElementById('autoBtn');
 const manualBtn = document.getElementById('manualBtn');
 const pumpToggle = document.getElementById('pumpToggle');
-autoBtn.onclick = () => { state.mode='auto'; autoBtn.classList.add('active'); manualBtn.classList.remove('active'); autoBtn.setAttribute('aria-pressed','true'); manualBtn.setAttribute('aria-pressed','false'); pumpToggle.style.display='none'; writeMode('auto'); addLog('Mode → AUTO'); };
-manualBtn.onclick = () => { state.mode='manual'; manualBtn.classList.add('active'); autoBtn.classList.remove('active'); manualBtn.setAttribute('aria-pressed','true'); autoBtn.setAttribute('aria-pressed','false'); pumpToggle.style.display='block'; state.manualOn=state.pumpOn; updateToggleLabel(); writeMode('manual'); addLog('Mode → MANUAL'); };
-pumpToggle.onclick = () => { state.manualOn = !state.manualOn; updateToggleLabel(); writeManualPump(state.manualOn); };
+autoBtn.onclick = () => { state.mode='auto'; autoBtn.classList.add('active'); manualBtn.classList.remove('active'); autoBtn.setAttribute('aria-pressed','true'); manualBtn.setAttribute('aria-pressed','false'); pumpToggle.style.display='none'; writeMode('auto'); addLog('Mode → AUTO'); render(); };
+manualBtn.onclick = () => { state.mode='manual'; manualBtn.classList.add('active'); autoBtn.classList.remove('active'); manualBtn.setAttribute('aria-pressed','true'); autoBtn.setAttribute('aria-pressed','false'); pumpToggle.style.display='block'; state.manualOn=state.pumpOn; updateToggleLabel(); writeMode('manual'); addLog('Mode → MANUAL'); render(); };
+pumpToggle.onclick = () => { state.manualOn = !state.manualOn; updateToggleLabel(); writeManualPump(state.manualOn); state.pumpOn = state.manualOn; addLog(`Pump ${state.manualOn ? 'ON' : 'OFF'} — requested`); render(); };
 function updateToggleLabel(){
   pumpToggle.textContent = state.manualOn ? 'Turn Pump OFF' : 'Turn Pump ON';
   pumpToggle.style.background = state.manualOn ? 'linear-gradient(180deg,#ec6b66,#e2554f)' : 'linear-gradient(180deg,#38b063,#2fa257)';
